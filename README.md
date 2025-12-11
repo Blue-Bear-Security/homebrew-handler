@@ -4,13 +4,13 @@ Official release artifacts and Homebrew formulas for Bluebear handler
 
 ## Prerequisites
 
-Have an account with bluebear. Sign up at https://bluebearsecurity.io/signup
+Have an account with bluebear. Sign up at https://bluebearsecurity.io/
 
 ## Install
 
 ```bash
 brew tap Blue-Bear-Security/homebrew-handler
-brew install blueden-claude-hooks
+brew install blueden
 ```
 
-For issues and questions, visit: https://bluebearsecurity.io/support
+For issues and questions, visit: https://bluebearsecurity.io/
