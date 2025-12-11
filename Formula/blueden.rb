@@ -283,7 +283,7 @@ class BluedenOAuthDownloadStrategy < CurlDownloadStrategy
         opoo "For security, the full key is only shown at creation time."
         opoo ""
         opoo "To configure, either:"
-        opoo "  1. Get your key from: https://console.bluebearsecurity.io/settings"
+        opoo "  1. Get your key from: https://app.bluebearsecurity.io/admin/api-keys"
         opoo "  2. Or revoke the existing key and re-run: brew reinstall blueden"
         opoo ""
         opoo "Then run: blueden configure --api-endpoint #{@api_base} --developer-api-key YOUR_KEY"
@@ -540,7 +540,7 @@ class Blueden < Formula
           blueden-claude --help
           blueden-codex --help
 
-        Documentation: https://docs.bluebearsecurity.io
+        Documentation: https://bluebearsecurity.io/docs
       EOS
     else
       <<~EOS
@@ -552,7 +552,7 @@ class Blueden < Formula
 #{client_list}
 
         To configure manually:
-          1. Visit: https://console.bluebearsecurity.io/settings
+          1. Visit: https://app.bluebearsecurity.io/admin/api-keys
           2. Copy your API key
           3. Run: blueden configure --api-key YOUR_KEY
 
@@ -561,7 +561,7 @@ class Blueden < Formula
           blueden status           # Check current status
           blueden --help           # View all commands
 
-        Documentation: https://docs.bluebearsecurity.io
+        Documentation: https://bluebearsecurity.io/docs
       EOS
     end
   end
