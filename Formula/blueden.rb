@@ -553,7 +553,7 @@ class Blueden < Formula
           blueden-claude --help
           blueden-codex --help
 
-        Documentation: https://bluebearsecurity.io/docs
+        Documentation: https://app.bluebearsecurity.io/docs
       EOS
     else
       <<~EOS
@@ -574,7 +574,7 @@ class Blueden < Formula
           blueden status           # Check current status
           blueden --help           # View all commands
 
-        Documentation: https://bluebearsecurity.io/docs
+        Documentation: https://app.bluebearsecurity.io/docs
       EOS
     end
   end
