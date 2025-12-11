@@ -80,6 +80,12 @@ class BluedenOAuthDownloadStrategy < CurlDownloadStrategy
     jwt_cache_file = File.join(@config_dir, ".jwt_cache")
     File.write(jwt_cache_file, jwt_token)
     File.chmod(0600, jwt_cache_file)
+
+    # Also save JWT token next to the downloaded file for install phase access
+    # (Homebrew sandbox may block access to ~/.config during install)
+    jwt_buildpath_file = "#{temporary_path}.jwt"
+    File.write(jwt_buildpath_file, jwt_token)
+    File.chmod(0600, jwt_buildpath_file)
   end
 
   private
@@ -302,7 +308,7 @@ end
 class Blueden < Formula
   desc "BlueDen - Secure AI coding agent governance for Claude, Codex, Copilot, and more"
   homepage "https://bluebearsecurity.io"
-  version "0.4.1"
+  version "0.4.2"
 
   # API base URL for downloads
   API_BASE = ENV.fetch("BLUEDEN_API_URL", "https://n93alh7z95.execute-api.us-east-1.amazonaws.com/prod")
@@ -439,15 +445,20 @@ class Blueden < Formula
     # Read JWT token from cache file (saved during download phase)
     # Try multiple possible locations since sandbox environments may have different HOME
     jwt_token = nil
+
+    # First, try to find JWT file in buildpath (most reliable in sandbox)
+    jwt_in_buildpath = Dir["#{buildpath}/../*.jwt"].first || Dir["#{HOMEBREW_CACHE}/**/*.jwt"].first
+
     possible_jwt_paths = [
+      jwt_in_buildpath,
       File.expand_path("~/.config/blueden/.jwt_cache"),
       File.join(ENV['HOME'] || '', ".config/blueden/.jwt_cache"),
       "/home/#{ENV['USER']}/.config/blueden/.jwt_cache",
       "#{Dir.home}/.config/blueden/.jwt_cache"
-    ].uniq.compact
+    ].compact.uniq
 
     possible_jwt_paths.each do |path|
-      if File.exist?(path)
+      if path && File.exist?(path)
         jwt_token = File.read(path).strip
         ohai "Found JWT token at #{path}"
         break
@@ -488,10 +499,12 @@ class Blueden < Formula
       end
     end
 
-    # Clean up JWT cache file
+    # Clean up JWT cache files
     possible_jwt_paths.each do |path|
-      FileUtils.rm_f(path) if File.exist?(path)
+      FileUtils.rm_f(path) if path && File.exist?(path)
     end
+    # Also clean up any .jwt files in cache directory
+    Dir["#{HOMEBREW_CACHE}/**/*.jwt"].each { |f| FileUtils.rm_f(f) }
 
     # Create main 'blueden' symlink to primary client
     bin.install_symlink "blueden-#{primary}" => "blueden"
