@@ -319,40 +319,40 @@ class Blueden < Formula
       name: "Claude Code",
       desc: "Anthropic Claude Code hooks",
       sha256: {
-        "macos-arm64" => "7a43b44d4b4d4d06301e197235f77818a81d87db8ae1c8d1cd4277c817e5c163",
-        "macos-x86_64" => "e192fc03879ea6f776cbbcf12cda33bb67fc77c44e725542dbd880394acce986",
-        "linux-arm64" => "cf30b9c07161585c222fbb32de1aa4b0f7a930015d4f404a28ff5f9487c97ae0",
-        "linux-x86_64" => "b4af8c534efc383e42a8d4e52235e3767b6a758517f0e439c55269c19c2762f8",
+        "macos-arm64" => "31dffb802034998773beb261a04825779380be3da0dfe505899c998c052bc13c",
+        "macos-x86_64" => "16cf44e825e91576b7dbfb8a7bda06067e5e09081159f0f3527d385d9a5c372e",
+        "linux-arm64" => "acbe7f379c5a22424d06bb18ef27c34a6015e894187cf6a771d50e03ff31f075",
+        "linux-x86_64" => "3f1a6264a6a4e48298e31c94a1ee5557a6dcbeb60d5fb0a685879be58419229d",
       }
     },
     "codex" => {
       name: "OpenAI Codex",
       desc: "OpenAI Codex CLI hooks",
       sha256: {
-        "macos-arm64" => "6e9953d5c611eef0b8157ddea8ef6399be02b1c763c6617d082a539b75a4a996",
-        "macos-x86_64" => "0c7d1c1dc1ef9ddbaecb710e357723ade522ac479552bc7287bd9cc482289004",
-        "linux-arm64" => "fff495d7ac726d0d5bf603d7c027342e7c0443cf2395f1cdb5efa96fb5237dcd",
-        "linux-x86_64" => "538e219bb32f91f70892db28e2b040b22bdd437d05642b5bda7b8f617195bad8",
+        "macos-arm64" => "f40c1b68991da636b4affc13fab74ee30d0ca6d35096079acec119cd1ef8ca06",
+        "macos-x86_64" => "1ba7f43a1f870a437afee419c48d2bc5c8cead6c9ce09a2110e7dd61e6b94118",
+        "linux-arm64" => "999d7df13ed2ba452ed922d4732938ef7d12106237305c5611749661ff5c6b86",
+        "linux-x86_64" => "00252fe5decde92e7220cfbb7166ca0b1da7926d07fdadf606762801edc13cf5",
       }
     },
     "copilot" => {
       name: "GitHub Copilot",
       desc: "GitHub Copilot CLI hooks",
       sha256: {
-        "macos-arm64" => "fc07ee2af81ae7abcae84f5911a0725fe35dea3c80a283222fa52249fdb6d468",
-        "macos-x86_64" => "042a319a380d7506a46d4087314d900d31509de5ff313cd873bd5eea3d246716",
-        "linux-arm64" => "e60821fd02182a27ddddf53be362e1b4d3044bf7fd176a999f5bc1b289f88837",
-        "linux-x86_64" => "6364d5204749727093c6f11ee921c5ad2c4cbd3b389c607cceed89e5a9c0a9f3",
+        "macos-arm64" => "f9dfecae74fc40449de1a9265e8c16e40dc00f1382531deca8a282632e4b4ef5",
+        "macos-x86_64" => "3e28588d67c4d488e51113066b442be1fd5157aef3498668e9c35c7ffd33070a",
+        "linux-arm64" => "3d4235b3373dcd54ddaf351d510e95cc2a605c5a3b200ec510eab9e9ba516cb2",
+        "linux-x86_64" => "45a62f8c0d6f481b53ded43e16250eaa4482b5ec65711582b4c1440f681390e6",
       }
     },
     "cursor" => {
       name: "Cursor IDE",
       desc: "Cursor IDE hooks",
       sha256: {
-        "macos-arm64" => "b358210b815f331ef2cb9b198ac6a3407a64e371198d650a7a075237505f0276",
-        "macos-x86_64" => "17355b592fdd48c7e5246e2c828f3ce50ac06d090d1758838d5942e0834f299b",
-        "linux-arm64" => "958843262adf2b7baeb399c1b2c0f2eefdf9272414bb0fd70deb7d09806a9369",
-        "linux-x86_64" => "e9a3add7c919af1f1d9fba6455c5eef989efb0ff6c0f4fdb08f24e195fa7b1aa",
+        "macos-arm64" => "3958bd1897d87299f1dc41e7fac5193f5c332d4230792ee149a8503ffd554ecf",
+        "macos-x86_64" => "7b5eb12753129f54172cda2291fe1d7e6035284a05a19a1834044163d29a78e5",
+        "linux-arm64" => "d1fb8fb5f20507addc8655d356d5ff98e4e498a396bfee252f4b9d86bee4de68",
+        "linux-x86_64" => "5c2f2aea2c6ee0f0570c0a173ca80c5c6b42398ddce06445985db13e48b6d65a",
       }
     },
     # Future clients (uncomment when ready):
@@ -420,7 +420,7 @@ class Blueden < Formula
     selected_clients.first
   end
 
-  url "#{API_BASE}/api/v1/bff/download/#{primary_client}-hooks/v0.4.1/#{platform_key}/blueden-#{primary_client}-hooks-#{platform_key}",
+  url "#{API_BASE}/api/v1/bff/download/#{primary_client}-hooks/v0.4.2/#{platform_key}/blueden-#{primary_client}-hooks-#{platform_key}",
     using: BluedenOAuthDownloadStrategy,
     client: primary_client
   sha256 CLIENTS[primary_client][:sha256][platform_key]
