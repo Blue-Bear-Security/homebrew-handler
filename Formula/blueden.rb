@@ -289,7 +289,7 @@ class BluedenOAuthDownloadStrategy < CurlDownloadStrategy
         opoo "For security, the full key is only shown at creation time."
         opoo ""
         opoo "To configure, either:"
-        opoo "  1. Get your key from: https://app.bluebearsecurity.io/admin/api-keys"
+        opoo "  1. Get your key from: https://app.bluebearsecurity.io/admin/devices"
         opoo "  2. Or revoke the existing key and re-run: brew reinstall blueden"
         opoo ""
         opoo "Then run: blueden configure --api-endpoint #{@api_base} --developer-api-key YOUR_KEY"
@@ -308,7 +308,7 @@ end
 class Blueden < Formula
   desc "BlueDen - Secure AI coding agent governance for Claude, Codex, Copilot, and more"
   homepage "https://bluebearsecurity.io"
-  version "0.4.3"
+  version "0.4.4"
 
   # API base URL for downloads
   API_BASE = ENV.fetch("BLUEDEN_API_URL", "https://n93alh7z95.execute-api.us-east-1.amazonaws.com/prod")
@@ -319,40 +319,40 @@ class Blueden < Formula
       name: "Claude Code",
       desc: "Anthropic Claude Code hooks",
       sha256: {
-        "macos-arm64" => "f1c1b6c87ce8526ce5a5cd737c04896135b30a23e5b94c738edb27e114517037",
-        "macos-x86_64" => "690da6af73b3228e70dcde5d06e0a843ed27fec3e4bbd478bab91199437028ca",
-        "linux-arm64" => "7f1b45eae65cfd020cf0044cacd5b143c07422e2d0e0fefed47647d3a917861a",
-        "linux-x86_64" => "adb83094ccde8655962e2e046f7d192ebeb5b05e9b8ed11a1cf79074bebb4a6f",
+        "macos-arm64" => "69e50af36261c7263733ba1e2b31bec3815014ef9dedb32e499ee97eec3e1d9b",
+        "macos-x86_64" => "7b3e512b17b77392f18e7027ff197e56d53d9dc5d32b0cea1b8a600b90be7e62",
+        "linux-arm64" => "714248d6e6e22a072fdd30c31ef6a127c69e7e5caeab3e10646f667d94151813",
+        "linux-x86_64" => "57d1c937de2bb5fc3b77a8487ec20d08621096fd34d7c5751316805d6aa791fc",
       }
     },
     "codex" => {
       name: "OpenAI Codex",
       desc: "OpenAI Codex CLI hooks",
       sha256: {
-        "macos-arm64" => "a89ce8afb94efd471c18dd5d9ad117a200b8e4e3cae72ba0d2e5c74aa0b003f1",
-        "macos-x86_64" => "c9e357b3f2199ebe76dec5eb77333c7e5fb6c4c7f9bb4d4c58ef40a02d538b5c",
-        "linux-arm64" => "9649da8438546cf5aff6d7205654d96c789f6a4331d95a751c49af430d01baa6",
-        "linux-x86_64" => "04062ae44a2fed15eddb3cb1b9eae8ba7da7a5f533265a94c7b78ae23e3b0d06",
+        "macos-arm64" => "20c2f3e1dba58d8b2d094b140ab40b197afb373d5ef33b372108e92d2c33c5f0",
+        "macos-x86_64" => "471111fec405a7a864276fbc9411ff45f8567eaaa1cfb586cc31bbd83a0d57b1",
+        "linux-arm64" => "94ef0c6c63f0734c7f08ed4d1e28a51d18c0cb138cf9dc001d52452b2f983d67",
+        "linux-x86_64" => "9ca6246ffa578d11125475584d24c9d5565ba9feed98b708186f5fd069aff775",
       }
     },
     "copilot" => {
       name: "GitHub Copilot",
       desc: "GitHub Copilot CLI hooks",
       sha256: {
-        "macos-arm64" => "6638818df270a7d82aae2c1ce70dce294ef7881d573064086d9764b2c3126b05",
-        "macos-x86_64" => "2bbfa0684954251ccd6edf8a5ae06df2eef539f480768804716266c9b6f956e3",
-        "linux-arm64" => "c6460fadef59f2f95ea66d164d97d38d3a0328c0bbd8ec9015bd65ec2ca1dff3",
-        "linux-x86_64" => "df37d8fbb7e67fe667f22feee19e8be2e79c50cc58d93baf494c6b139f46cdad",
+        "macos-arm64" => "7ac552af1c534eb5a7f6b9c2109ba15cc739f26fa9a479d9c81eba1bd9848a53",
+        "macos-x86_64" => "f767ddf046cd85bf1ac78a47db465b4cc23e7d9e8504a89c50a83b4258effae1",
+        "linux-arm64" => "858a6a7aad0450a20be85e19f04c25cbf1b01317ecaaccfad9c5a499a455e870",
+        "linux-x86_64" => "f6f55291bfce9a73f5451119b370468f0aae07cf94786706e05db98e150deeed",
       }
     },
     "cursor" => {
       name: "Cursor IDE",
       desc: "Cursor IDE hooks",
       sha256: {
-        "macos-arm64" => "4df3c6266cca65ccdf2e7487cac46286be6f0b4ef55eca7bd5b359bd9eafaef8",
-        "macos-x86_64" => "893278d437941275eb40f3864ec5bd158027afebeefb1e58c47df901f2b7b787",
-        "linux-arm64" => "bd779a3c1b02be51a0151c21ad8afb2624c3f41566f13f9b7529460b9d517a8b",
-        "linux-x86_64" => "7ed33317ee1137f45d50ac19f92c0f1c6e88db75a603004de72a1d7d075d07f7",
+        "macos-arm64" => "1ab86a702e6188ca4e69a64677b935d628a4ccc2d2fe68c7807f45904dddbbf4",
+        "macos-x86_64" => "2ec154708dd4b2df74954ad3f1e2410eedd7c5fb49584cfb11fff4b3a1acff4d",
+        "linux-arm64" => "e4459801de1233cd50524275fba11f8018684bfcf009cad4f4273140f4e40c21",
+        "linux-x86_64" => "95d58cbb2875112c404974b0938c8920b7a619c4561772ab9f75d693abd21b4e",
       }
     },
     # Future clients (uncomment when ready):
@@ -420,7 +420,7 @@ class Blueden < Formula
     selected_clients.first
   end
 
-  url "#{API_BASE}/api/v1/bff/download/#{primary_client}-hooks/v0.4.3/#{platform_key}/blueden-#{primary_client}-hooks-#{platform_key}",
+  url "#{API_BASE}/api/v1/bff/download/#{primary_client}-hooks/v0.4.4/#{platform_key}/blueden-#{primary_client}-hooks-#{platform_key}",
     using: BluedenOAuthDownloadStrategy,
     client: primary_client
   sha256 CLIENTS[primary_client][:sha256][platform_key]
@@ -533,6 +533,27 @@ class Blueden < Formula
 
     client_list = selected.map { |c| "  - #{CLIENTS[c][:name]} (blueden-#{c})" }.join("\n")
 
+    # Build setup instructions based on selected clients
+    enable_instructions = []
+    disable_instructions = []
+    if selected.include?("claude")
+      enable_instructions << "          blueden-claude enable"
+      disable_instructions << "          blueden-claude disable"
+    end
+    if selected.include?("cursor")
+      enable_instructions << "          blueden-cursor enable"
+      disable_instructions << "          blueden-cursor disable"
+    end
+    if selected.include?("copilot")
+      enable_instructions << "          blueden-copilot enable"
+      disable_instructions << "          blueden-copilot disable"
+    end
+    if selected.include?("codex")
+      enable_instructions << "          blueden-codex enable"
+      disable_instructions << "          blueden-codex disable"
+    end
+    setup_section = enable_instructions.empty? ? "" : "\n        Enable each client:\n#{enable_instructions.join("\n")}\n\n        To disable:\n#{disable_instructions.join("\n")}\n"
+
     if config_exists
       <<~EOS
         BlueDen has been installed!
@@ -541,17 +562,13 @@ class Blueden < Formula
 
         Installed clients:
 #{client_list}
-
+#{setup_section}
         Your configuration is stored in: #{config_file}
 
         Quick commands:
           blueden test             # Test the connection
           blueden status           # Check current status
           blueden --help           # View all commands
-
-        Or use client-specific commands:
-          blueden-claude --help
-          blueden-codex --help
 
         Documentation: https://app.bluebearsecurity.io/docs
       EOS
@@ -565,10 +582,10 @@ class Blueden < Formula
 #{client_list}
 
         To configure manually:
-          1. Visit: https://app.bluebearsecurity.io/admin/api-keys
+          1. Visit: https://app.bluebearsecurity.io/admin/devices
           2. Copy your API key
           3. Run: blueden configure --api-key YOUR_KEY
-
+#{setup_section}
         Quick commands:
           blueden test             # Test the connection
           blueden status           # Check current status
