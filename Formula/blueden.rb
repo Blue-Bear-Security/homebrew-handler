@@ -123,11 +123,13 @@ class BluedenOAuthDownloadStrategy < CurlDownloadStrategy
     verification_uri_complete = data["verification_uri_complete"]
     expires_in = data["expires_in"] || 300
 
+    browser_url = verification_uri_complete || "#{@console_url}/device?code=#{user_code}"
+
     $stderr.puts ""
     $stderr.puts "  To authenticate, please:"
     $stderr.puts ""
     $stderr.puts "  1. Open this URL in your browser:"
-    $stderr.puts "     \e[32m#{verification_uri}\e[0m"
+    $stderr.puts "     \e[32m#{browser_url}\e[0m"
     $stderr.puts ""
     $stderr.puts "  2. Enter this code when prompted:"
     $stderr.puts ""
@@ -137,8 +139,6 @@ class BluedenOAuthDownloadStrategy < CurlDownloadStrategy
     $stderr.puts ""
     $stderr.puts "  Code expires in #{expires_in / 60} minutes"
     $stderr.puts ""
-
-    browser_url = verification_uri_complete || "#{@console_url}/device?code=#{user_code}"
     browser_opened = false
 
     if OS.mac?
@@ -308,7 +308,7 @@ end
 class Blueden < Formula
   desc "BlueDen - Secure AI coding agent governance for Claude, Codex, Copilot, and more"
   homepage "https://bluebearsecurity.io"
-  version "0.4.5"
+  version "0.4.6"
 
   # API base URL for downloads
   API_BASE = ENV.fetch("BLUEDEN_API_URL", "https://n93alh7z95.execute-api.us-east-1.amazonaws.com/prod")
@@ -319,40 +319,40 @@ class Blueden < Formula
       name: "Claude Code",
       desc: "Anthropic Claude Code hooks",
       sha256: {
-        "macos-arm64" => "1fda0d223b3f6652783f210667c175c2aaf2cf623eb2a34d0ec4da708d8fb437",
-        "macos-x86_64" => "b65b938dd535a5f6eaee1f7442d4bae39c4935d7c510b175e2653723250fe289",
-        "linux-arm64" => "46deca93b02b83ba1cb634ddfc929d7260c3c88ba71449a0454fd8be692658d7",
-        "linux-x86_64" => "5810d7116c6df9988702f78b2b6327d684e0e43108040867868e363762dfb1c0",
+        "macos-arm64" => "6f6bf0984a46828d0b786d799c25cc515bfd0d57db46f3ca650e278b328f837b",
+        "macos-x86_64" => "d2dd1cbd01bda925a0a09c24308228e0e3ebc579bad6d2413d2e849b0acbd90f",
+        "linux-arm64" => "dd08b7067ca102e25e05e8fdea5743622126b2fc6e5171a19c0b05e961aeddd4",
+        "linux-x86_64" => "45ad5bbefb7d946a335522106d06ea902df1a8a7f78ad2e7b9810633b1bb8018",
       }
     },
     "codex" => {
       name: "OpenAI Codex",
       desc: "OpenAI Codex CLI hooks",
       sha256: {
-        "macos-arm64" => "993bb4aae49d89f5b73deee53bfe1fbdb6133c555e9cc07589eec397ea25e056",
-        "macos-x86_64" => "696fc50b6d41777de085266e8a3a3be960982a72ffe6df2ae6fd9555006eacc7",
-        "linux-arm64" => "f582c8ecee06c4c87a9853a99f374273da7c4a36155e7c69c8842b80dc294935",
-        "linux-x86_64" => "1e8ef4864eba7bbc8aed8c1f890c329bdc8840bc8afc936baaccd9710446143f",
+        "macos-arm64" => "62b39500ab54b1f862e86e0a96ef89f1a904ba877f36a6b8d879537629661165",
+        "macos-x86_64" => "4ef34708c6d7b5591f44a7eb7ecbee8a40d26990a6e60cba42000e770cfd10ce",
+        "linux-arm64" => "1068733481f878be2ae9c40a57b07e1fe3d1978b27eeee0c3d8c24a94fa34d0f",
+        "linux-x86_64" => "587c60f01840e46f8fa27f7a5d41b2247bc38328efa27ba5adf04f8a3fd6678b",
       }
     },
     "copilot" => {
       name: "GitHub Copilot",
       desc: "GitHub Copilot CLI hooks",
       sha256: {
-        "macos-arm64" => "4a58b1ba1838c3a26968f1d2343c5d6cee2bcd4707824855eda9813cd602afdf",
-        "macos-x86_64" => "12b3a956722aedd9c7b8796627de9488f5d8de0fb23f5fd224bc774c7b6d789a",
-        "linux-arm64" => "bd7fe19d6a8b5f51a9d181c7247200f656f48fc8b895defd9c261be7a532bafe",
-        "linux-x86_64" => "fd3a4a71f46988f04f9fb7a58bcbdebb04d8839c57783fdab3ef56fbb07ea6a5",
+        "macos-arm64" => "23fac1986e8e309b3ec12350586e330e4b089ca9edb4172ffdd6275cdb3494a5",
+        "macos-x86_64" => "2633acf1d20a328af867a79dcdb09a49ed3da8955018fbac79690b827fe88f1e",
+        "linux-arm64" => "a5af397b5cee8c3adc8ae5be23fd60236799f1b506337a661d3296474a128fc9",
+        "linux-x86_64" => "cb36ed27bf379e4452050e2b41d61a9f5989a6b98cf83cd0bdce276d58e06d03",
       }
     },
     "cursor" => {
       name: "Cursor IDE",
       desc: "Cursor IDE hooks",
       sha256: {
-        "macos-arm64" => "8b1270ecb8bb3dda56b3e4994945fad9f15f5c7b3d57f4d8fa8f7c64a9f732ad",
-        "macos-x86_64" => "3f517339203073d3e8a75dc628d11a4424b923fa0cda90f56af7545e11315e61",
-        "linux-arm64" => "e3cfa55cfc05150c71c298050aebc982ea84dd94c7aa1b3a2cf63220c6125755",
-        "linux-x86_64" => "76eff0fcdae10bbe19f33c183f0d69704d25eb975295afe99802c2c82aae33bd",
+        "macos-arm64" => "0860480f294361bf446c77baf2805cae8a7eed543a23a77b5676144c552bfe1e",
+        "macos-x86_64" => "7403ce56d1b099d499661297c32495f0481e8298bef9e2950642f9f5525abe20",
+        "linux-arm64" => "7875b96fdd2a94e2dc1d087175c16cb7cefddfb73af8dd4fd7c8c011a2ff75e7",
+        "linux-x86_64" => "c5406bc3a223473bd3ea88e611100e5cc11827f1fd3fab55f0ec6efab10895a1",
       }
     },
     # Future clients (uncomment when ready):
@@ -420,7 +420,7 @@ class Blueden < Formula
     selected_clients.first
   end
 
-  url "#{API_BASE}/api/v1/bff/download/#{primary_client}-hooks/v0.4.5/#{platform_key}/blueden-#{primary_client}-hooks-#{platform_key}",
+  url "#{API_BASE}/api/v1/bff/download/#{primary_client}-hooks/v0.4.6/#{platform_key}/blueden-#{primary_client}-hooks-#{platform_key}",
     using: BluedenOAuthDownloadStrategy,
     client: primary_client
   sha256 CLIENTS[primary_client][:sha256][platform_key]
