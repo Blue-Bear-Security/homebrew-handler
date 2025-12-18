@@ -319,7 +319,7 @@ end
 class Blueden < Formula
   desc "BlueDen - Secure AI coding agent governance for Claude, Codex, Copilot, and more"
   homepage "https://bluebearsecurity.io"
-  version "0.4.8"
+  version "0.4.9"
 
   # API base URL for downloads
   API_BASE = ENV.fetch("BLUEDEN_API_URL", "https://n93alh7z95.execute-api.us-east-1.amazonaws.com/prod")
@@ -330,40 +330,40 @@ class Blueden < Formula
       name: "Claude Code",
       desc: "Anthropic Claude Code hooks",
       sha256: {
-        "macos-arm64" => "4965d29ce603958681c038b5c4cec40731e9b7a395ea875b17a56f3e0ca3ef64",
-        "macos-x86_64" => "24f06bdee3d28e42fc624ff706fc3d7bdb013c85ca04627cc0d1fa404899f995",
-        "linux-arm64" => "5863a99444a4d92f1e8305b7e947ca21c23325f716e72789443c84894e23998f",
-        "linux-x86_64" => "f28ac944b173e124f9dabf91219ff6bdf417006a03e089ea782aa6b5de32e652",
+        "macos-arm64" => "fd7b30c08928e349b39c0f9d1dd17593582a64d9e7c1436b96a9e0d48a62ab87",
+        "macos-x86_64" => "0016eb21dc4ae753bf3b5cf4a0f20f32a42f13afdcfe6c82c34f6a68e4e2406c",
+        "linux-arm64" => "353ab60fc9f7cf9af86d276d416bda7c74c1f508cad228a9261dcce2a744ea66",
+        "linux-x86_64" => "229d3565897219d053d655af745f3b1f73638a1977bcf63420d030e07d5c0a81",
       }
     },
     "codex" => {
       name: "OpenAI Codex",
       desc: "OpenAI Codex CLI hooks",
       sha256: {
-        "macos-arm64" => "6e7f195c73d1fc6ffa1fd8f177cbeb8f4141ea57692abb4feddda97930247132",
-        "macos-x86_64" => "751162b5118b7e6f861e6aeb71f6f36abe8a0db4252a2a9212878bf753b4e705",
-        "linux-arm64" => "890fc4a92ad0bd1b77e2073aba8905bb78c7c859b3e441033744cef770164d2e",
-        "linux-x86_64" => "315b6ca7946ce6cbaa70d163b73e83a4f9b44c4b2749c3d8ad418d8d153a56a6",
+        "macos-arm64" => "e149de8c1b37c444496ed74504f80afbaa13688190e77c8349cfa03cd3b58c36",
+        "macos-x86_64" => "7b44d8fdbd1d4211e03735f72d35b23a32a8452654527a2071d5ee54571a148b",
+        "linux-arm64" => "90111592cc3f3165c0f3ab7c28adb7b18f00285891e64f4503f92e8740b07cc8",
+        "linux-x86_64" => "f4b51b90006662a3789ccc7a1cde0a723f27fec4b231dee33de6ce356354725b",
       }
     },
     "copilot" => {
       name: "GitHub Copilot",
       desc: "GitHub Copilot CLI hooks",
       sha256: {
-        "macos-arm64" => "390e8de46419f23936d7298b847435496fb1ba83b334b9972f075ce9e357b9a5",
-        "macos-x86_64" => "bc9de68802e3b1ca9dc8555f2f6c7826b1a8ea3300a3d7b33263b966b5eca8bb",
-        "linux-arm64" => "4a90af6d2cab252d14537319781c3bc32c75c8e8a7a2886042c2d12b6145f3c8",
-        "linux-x86_64" => "a6bbc6cae0d20ffda5b4075d3c3218a0c27327cc692b274e5e4a35e953e25477",
+        "macos-arm64" => "03d95adf54bf369b8a80d7ed2ab120af6e1415a967217b4352178a75b1380d35",
+        "macos-x86_64" => "ebff6112d8b7c38e6cb7c21087954b5541c984a05bc50afbc16195f03a56dac2",
+        "linux-arm64" => "648cef0e9e8036a6fc0249054bb0ce939375ea21baa83dcb8a767923844380cb",
+        "linux-x86_64" => "c4097c05318ef015869bac943678b17589d8c1e38c9e8825c144ff4159da5523",
       }
     },
     "cursor" => {
       name: "Cursor IDE",
       desc: "Cursor IDE hooks",
       sha256: {
-        "macos-arm64" => "5f310b3606045cd42f0582f5867c5517aa6b7374d732dbf7f22d84d4c8ff2300",
-        "macos-x86_64" => "9a700b875726f4fbd04d9566606d30240c551b641b57dbdf4876fc53df800c70",
-        "linux-arm64" => "82871bc61e96f4d6189c060780fd1a4db000afbb785e2502f9798c87cd135f8e",
-        "linux-x86_64" => "4d03c70963387167a8eae479d8fa5db6d9fb8e2be89fd5f11c1a317863884a61",
+        "macos-arm64" => "6748d6bd121ec1a26e5a397710d49e3adaa6c0ac29d193715dd89c876e9608e7",
+        "macos-x86_64" => "d99423364b1655283804ad0f8cdfbcd3bab258b3bd8ef21d714717a4647fa150",
+        "linux-arm64" => "ebbf546650743ee80d1895744214a49af968cbb440f968aa64819c337a15e8fd",
+        "linux-x86_64" => "005aad1f01934c888b559c7d858617cd5c05486efe92d7bb454041c94e620ba8",
       }
     },
     # Future clients (uncomment when ready):
@@ -431,7 +431,7 @@ class Blueden < Formula
     selected_clients.first
   end
 
-  url "#{API_BASE}/api/v1/bff/download/#{primary_client}-hooks/v0.4.8/#{platform_key}/blueden-#{primary_client}-hooks-#{platform_key}",
+  url "#{API_BASE}/api/v1/bff/download/#{primary_client}-hooks/v0.4.9/#{platform_key}/blueden-#{primary_client}-hooks-#{platform_key}",
     using: BluedenOAuthDownloadStrategy,
     client: primary_client
   sha256 CLIENTS[primary_client][:sha256][platform_key]
