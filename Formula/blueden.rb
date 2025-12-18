@@ -25,13 +25,25 @@ class BluedenOAuthDownloadStrategy < CurlDownloadStrategy
   def initialize(url, name, version, **meta)
     @api_base = ENV.fetch("BLUEDEN_API_URL", "https://n93alh7z95.execute-api.us-east-1.amazonaws.com/prod")
     @console_url = ENV.fetch("BLUEDEN_CONSOLE_URL", "https://app.bluebearsecurity.io/console")
-    @config_dir = File.expand_path("~/.config/blueden")
+    @config_dir = File.expand_path("~/.blueden")
     @client_name = meta[:client] || "claude"
     super
   end
 
   def _fetch(url:, resolved_url:, timeout:)
     FileUtils.mkdir_p(@config_dir)
+
+    # Check for existing config with valid credentials
+    @existing_config = load_existing_config
+    if @existing_config && @existing_config["developer_api_key"] && @existing_config["api_endpoint"]
+      ohai "Found existing BlueDen configuration"
+      puts ""
+      puts "  API Key: #{@existing_config["developer_api_key"][0..7]}..."
+      puts "  Endpoint: #{@existing_config["api_endpoint"]}"
+      puts ""
+      puts "Existing credentials will be preserved."
+      puts ""
+    end
 
     ohai "BlueDen OAuth Authentication Required"
     puts ""
@@ -74,21 +86,32 @@ class BluedenOAuthDownloadStrategy < CurlDownloadStrategy
       raise CurlDownloadStrategyError, "Download failed - file too small (#{downloaded_size} bytes)"
     end
 
-    setup_api_key(jwt_token)
+    # Skip API key creation if we already have valid credentials
+    if @existing_config && @existing_config["developer_api_key"] && @existing_config["api_endpoint"]
+      ohai "Preserving existing API key configuration"
+    else
+      setup_api_key(jwt_token)
+    end
 
     # Save JWT token for install phase to download additional binaries
-    jwt_cache_file = File.join(@config_dir, ".jwt_cache")
-    File.write(jwt_cache_file, jwt_token)
-    File.chmod(0600, jwt_cache_file)
-
-    # Also save JWT token next to the downloaded file for install phase access
-    # (Homebrew sandbox may block access to ~/.config during install)
+    # Store next to the downloaded file (in Homebrew cache) for install phase access
     jwt_buildpath_file = "#{temporary_path}.jwt"
     File.write(jwt_buildpath_file, jwt_token)
     File.chmod(0600, jwt_buildpath_file)
   end
 
   private
+
+  def load_existing_config
+    config_file = File.join(@config_dir, "config")
+    return nil unless File.exist?(config_file)
+
+    begin
+      JSON.parse(File.read(config_file))
+    rescue JSON::ParserError
+      nil
+    end
+  end
 
   def authenticate_device_flow
     require "open3"
@@ -259,27 +282,15 @@ class BluedenOAuthDownloadStrategy < CurlDownloadStrategy
       api_endpoint = data["api_endpoint"] || @api_base
 
       if api_key
-        # New key created - save it
-        # Write to ~/.config/blueden/config.json (formula's config location)
-        config_file = File.join(@config_dir, "config.json")
+        # New key created - save it to ~/.blueden/config (single config location)
+        config_file = File.join(@config_dir, "config")
         config = File.exist?(config_file) ? JSON.parse(File.read(config_file)) : {}
-        config["api_key"] = api_key
-        config["api_url"] = api_endpoint  # Use data ingestion URL
+        config["api_endpoint"] = api_endpoint  # Use data ingestion URL from response
+        config["developer_api_key"] = api_key
+        config["monitor_poll_interval"] = config["monitor_poll_interval"] || 1.0
         config["configured_at"] = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
         File.write(config_file, JSON.pretty_generate(config))
         File.chmod(0600, config_file)
-
-        # Also write to ~/.blueden/config (clients' config location) in their expected format
-        client_config_dir = File.expand_path("~/.blueden")
-        FileUtils.mkdir_p(client_config_dir)
-        client_config_file = File.join(client_config_dir, "config")
-        client_config = {
-          "api_endpoint" => api_endpoint,  # Use data ingestion URL from response
-          "developer_api_key" => api_key,
-          "monitor_poll_interval" => 1.0
-        }
-        File.write(client_config_file, JSON.pretty_generate(client_config))
-        File.chmod(0600, client_config_file)
 
         ohai "New API key created and saved (endpoint: #{api_endpoint})"
       else
@@ -308,7 +319,7 @@ end
 class Blueden < Formula
   desc "BlueDen - Secure AI coding agent governance for Claude, Codex, Copilot, and more"
   homepage "https://bluebearsecurity.io"
-  version "0.4.6"
+  version "0.4.7"
 
   # API base URL for downloads
   API_BASE = ENV.fetch("BLUEDEN_API_URL", "https://n93alh7z95.execute-api.us-east-1.amazonaws.com/prod")
@@ -319,40 +330,40 @@ class Blueden < Formula
       name: "Claude Code",
       desc: "Anthropic Claude Code hooks",
       sha256: {
-        "macos-arm64" => "6f6bf0984a46828d0b786d799c25cc515bfd0d57db46f3ca650e278b328f837b",
-        "macos-x86_64" => "d2dd1cbd01bda925a0a09c24308228e0e3ebc579bad6d2413d2e849b0acbd90f",
-        "linux-arm64" => "dd08b7067ca102e25e05e8fdea5743622126b2fc6e5171a19c0b05e961aeddd4",
-        "linux-x86_64" => "45ad5bbefb7d946a335522106d06ea902df1a8a7f78ad2e7b9810633b1bb8018",
+        "macos-arm64" => "697b94f94d607ca325872de3f96d9b74135fb9fd604869b2852348257012ac09",
+        "macos-x86_64" => "3369736ed53a12b12a0a11c90533db562b55cad47333ec0c287b4d0b7912a1a0",
+        "linux-arm64" => "783d5f1fe0b51bae5e0017a3c1ab09540fc7830de068c3f1792f6fa036e028cb",
+        "linux-x86_64" => "1f21ceddd2555ffd30fb3e7463f7fc3bc72cfff690420f2f69f8f7917f0fb7aa",
       }
     },
     "codex" => {
       name: "OpenAI Codex",
       desc: "OpenAI Codex CLI hooks",
       sha256: {
-        "macos-arm64" => "62b39500ab54b1f862e86e0a96ef89f1a904ba877f36a6b8d879537629661165",
-        "macos-x86_64" => "4ef34708c6d7b5591f44a7eb7ecbee8a40d26990a6e60cba42000e770cfd10ce",
-        "linux-arm64" => "1068733481f878be2ae9c40a57b07e1fe3d1978b27eeee0c3d8c24a94fa34d0f",
-        "linux-x86_64" => "587c60f01840e46f8fa27f7a5d41b2247bc38328efa27ba5adf04f8a3fd6678b",
+        "macos-arm64" => "7df6c0441277792355b5137108f6025d48fc211f994774278cf802e4c594ae1a",
+        "macos-x86_64" => "73b71025d51a52cec4d548832f3032b0f8137dedef82d686d6043b5fe6d669c2",
+        "linux-arm64" => "dceb2b32873ef69c4e2b4f6c532512dfa72269a0a041523428bca34ad8318c9e",
+        "linux-x86_64" => "7993796880b85e84099a526bc33c3ec2479553e05287cef4216d6d7ced6a264b",
       }
     },
     "copilot" => {
       name: "GitHub Copilot",
       desc: "GitHub Copilot CLI hooks",
       sha256: {
-        "macos-arm64" => "23fac1986e8e309b3ec12350586e330e4b089ca9edb4172ffdd6275cdb3494a5",
-        "macos-x86_64" => "2633acf1d20a328af867a79dcdb09a49ed3da8955018fbac79690b827fe88f1e",
-        "linux-arm64" => "a5af397b5cee8c3adc8ae5be23fd60236799f1b506337a661d3296474a128fc9",
-        "linux-x86_64" => "cb36ed27bf379e4452050e2b41d61a9f5989a6b98cf83cd0bdce276d58e06d03",
+        "macos-arm64" => "b7e77fbb55eb858a67d3c4c9365578b0a38510c0368f75e48606c34dd8183e1a",
+        "macos-x86_64" => "addc1d08d7a684ccbb1e9340102a83c10c98888561905ffa5134cac2110c55e9",
+        "linux-arm64" => "e0c124efe8492a2072018620873accc0fc89b5f331b5791ea2a86f1b4b1baa40",
+        "linux-x86_64" => "323707e693c2e5a5da3dd58ebd09835fd44f576d56f5bc9146ca2952563c4115",
       }
     },
     "cursor" => {
       name: "Cursor IDE",
       desc: "Cursor IDE hooks",
       sha256: {
-        "macos-arm64" => "0860480f294361bf446c77baf2805cae8a7eed543a23a77b5676144c552bfe1e",
-        "macos-x86_64" => "7403ce56d1b099d499661297c32495f0481e8298bef9e2950642f9f5525abe20",
-        "linux-arm64" => "7875b96fdd2a94e2dc1d087175c16cb7cefddfb73af8dd4fd7c8c011a2ff75e7",
-        "linux-x86_64" => "c5406bc3a223473bd3ea88e611100e5cc11827f1fd3fab55f0ec6efab10895a1",
+        "macos-arm64" => "19e505eaf4840f5ac935cb64b46cc82fb29f3b050e8afc24c2654ff66ef77208",
+        "macos-x86_64" => "3459fe404dc9a8711e66e8872f324ec7920e9858601a130669d55e6ddcf1d62f",
+        "linux-arm64" => "d18b1cb60ef3123ef55c0f9c3d28c3564ee34507ffc1c742a2e1e42343f0464f",
+        "linux-x86_64" => "77efde17e89f62578465dcafc340b1d2dc04c0e26e575f3e759979c867dcec62",
       }
     },
     # Future clients (uncomment when ready):
@@ -420,7 +431,7 @@ class Blueden < Formula
     selected_clients.first
   end
 
-  url "#{API_BASE}/api/v1/bff/download/#{primary_client}-hooks/v0.4.6/#{platform_key}/blueden-#{primary_client}-hooks-#{platform_key}",
+  url "#{API_BASE}/api/v1/bff/download/#{primary_client}-hooks/v0.4.7/#{platform_key}/blueden-#{primary_client}-hooks-#{platform_key}",
     using: BluedenOAuthDownloadStrategy,
     client: primary_client
   sha256 CLIENTS[primary_client][:sha256][platform_key]
@@ -442,19 +453,13 @@ class Blueden < Formula
     require "open3"
     api_base = API_BASE
 
-    # Read JWT token from cache file (saved during download phase)
-    # Try multiple possible locations since sandbox environments may have different HOME
+    # Read JWT token from cache file (saved during download phase in Homebrew cache)
     jwt_token = nil
 
-    # First, try to find JWT file in buildpath (most reliable in sandbox)
-    jwt_in_buildpath = Dir["#{buildpath}/../*.jwt"].first || Dir["#{HOMEBREW_CACHE}/**/*.jwt"].first
-
+    # Look for JWT file in buildpath or Homebrew cache
     possible_jwt_paths = [
-      jwt_in_buildpath,
-      File.expand_path("~/.config/blueden/.jwt_cache"),
-      File.join(ENV['HOME'] || '', ".config/blueden/.jwt_cache"),
-      "/home/#{ENV['USER']}/.config/blueden/.jwt_cache",
-      "#{Dir.home}/.config/blueden/.jwt_cache"
+      Dir["#{buildpath}/../*.jwt"].first,
+      Dir["#{HOMEBREW_CACHE}/**/*.jwt"].first
     ].compact.uniq
 
     possible_jwt_paths.each do |path|
@@ -499,20 +504,16 @@ class Blueden < Formula
       end
     end
 
-    # Clean up JWT cache files
-    possible_jwt_paths.each do |path|
-      FileUtils.rm_f(path) if path && File.exist?(path)
-    end
-    # Also clean up any .jwt files in cache directory
-    Dir["#{HOMEBREW_CACHE}/**/*.jwt"].each { |f| FileUtils.rm_f(f) }
+    # Clean up all JWT and temporary files from Homebrew cache
+    cleanup_homebrew_cache
 
     # Create main 'blueden' symlink to primary client
     bin.install_symlink "blueden-#{primary}" => "blueden"
 
-    # Save installed clients to config
-    config_dir = Pathname.new(File.expand_path("~/.config/blueden"))
+    # Save installed clients to config at ~/.blueden/config
+    config_dir = Pathname.new(File.expand_path("~/.blueden"))
     config_dir.mkpath
-    config_file = config_dir / "config.json"
+    config_file = config_dir / "config"
 
     config = config_file.exist? ? JSON.parse(config_file.read) : {}
     config["installed_clients"] = selected
@@ -521,14 +522,31 @@ class Blueden < Formula
 
     config_file.write(JSON.pretty_generate(config))
     config_file.chmod(0600)
-
-    # Note: All clients share the same config at ~/.blueden/config
-    # The OAuth flow writes to this location, so all clients are automatically configured
   end
+
+  private
+
+  def cleanup_homebrew_cache
+    # Clean up JWT files from buildpath (next to downloaded binaries)
+    Dir["#{buildpath}/../*.jwt"].each { |f| FileUtils.rm_f(f) }
+
+    # Clean up any .jwt files in Homebrew cache directory
+    Dir["#{HOMEBREW_CACHE}/**/*.jwt"].each { |f| FileUtils.rm_f(f) }
+
+    # Clean up any blueden-related temp files in Homebrew cache
+    Dir["#{HOMEBREW_CACHE}/**/blueden-*"].each do |f|
+      # Only remove files, not directories, and only temp/partial files
+      FileUtils.rm_f(f) if File.file?(f) && !f.end_with?(".rb")
+    end
+
+    ohai "Cleaned up temporary files from Homebrew cache"
+  end
+
+  public
 
   def caveats
     selected = self.class.selected_clients
-    config_file = File.expand_path("~/.config/blueden/config.json")
+    config_file = File.expand_path("~/.blueden/config")
     config_exists = File.exist?(config_file)
 
     client_list = selected.map { |c| "  - #{CLIENTS[c][:name]} (blueden-#{c})" }.join("\n")
