@@ -300,14 +300,14 @@ class BluebearOAuthDownloadStrategy < CurlDownloadStrategy
 end
 
 cask "bluebear" do
-  version "0.4.15"
+  version "0.4.16"
 
   # Platform-specific configuration
   if Hardware::CPU.arm?
-    sha256 "b6969c7e6c5f1baeab177b542df9e59abbeb2f14b55671c2fef2cf195a4f2db2"
+    sha256 "cd97b8618bcffad1b2e451e44759444249814383601ef32974c376d0c7c6e233"
     platform_suffix = "macos-arm64"
   else
-    sha256 "b665c5f7b2f9692f4fcb2f0486681eefe01d8d48f77ee51844f2d8e73445cda7"
+    sha256 "74714484179326f403701cfa0c886b2617bdd644cce0175a4ea8848a32d51ec5"
     platform_suffix = "macos-x86_64"
   end
 
@@ -344,20 +344,20 @@ cask "bluebear" do
       # Client SHA256 hashes
       client_hashes = {
         "claude" => {
-          sha256_arm64: "b6969c7e6c5f1baeab177b542df9e59abbeb2f14b55671c2fef2cf195a4f2db2",
-          sha256_x86_64: "b665c5f7b2f9692f4fcb2f0486681eefe01d8d48f77ee51844f2d8e73445cda7",
+          sha256_arm64: "cd97b8618bcffad1b2e451e44759444249814383601ef32974c376d0c7c6e233",
+          sha256_x86_64: "74714484179326f403701cfa0c886b2617bdd644cce0175a4ea8848a32d51ec5",
         },
         "codex" => {
-          sha256_arm64: "0c6b93e652f2887f39d9b197aeff73a4246fb3c9b8c589436facdac1ddf3d054",
-          sha256_x86_64: "8e21ecf52b0ee0d3753dbe202d46a12389fb6fa247e1a3ca26770b0731d53395",
+          sha256_arm64: "f55d374debdb366e1467210660ac86650052a2318f92aca29c2bd5061242f339",
+          sha256_x86_64: "676a52d2449321338544ece6ac86064fa9c8ad54701526889f72237eae71f366",
         },
         "copilot" => {
-          sha256_arm64: "35020b4aa242dd592ef8d3846b82392a9d88d007ebbb3dcf35774456b5d89090",
-          sha256_x86_64: "3ee3133099cac761b38674e662b55a36aa0394ca68f6cb43cabd907cd65c5269",
+          sha256_arm64: "6c30ec669aef6655b21c2946c231b3bf81d700fc7f9da2bbbbcd3b75d75f1fa3",
+          sha256_x86_64: "92f06a511aa5c08e653c0447cbc80e6450a2d341f877397a8a7fd2bdefa14104",
         },
         "cursor" => {
-          sha256_arm64: "ecc0bfdc523317e522c1683ebf7efecca107cfe89291ec6ec084b83b273b4010",
-          sha256_x86_64: "192604e929743fa75801b6f175bfa396dc07f8b5b7a8cdff353b995d588ee592",
+          sha256_arm64: "91f1ffef5488cc3817f2e922af1c3fb0002e36156667b0b95dd6898e657914de",
+          sha256_x86_64: "18e0192d122c20b9949f4bdd48d5acff1464b68864ef4c5ae775578cd23eaf19",
         },
       }
 
@@ -486,37 +486,35 @@ cask "bluebear" do
       set -e
 
       show_help() {
-          cat << EOF
-      BlueBear - Unified CLI for AI Agent Governance
-
-      Usage: bluebear <client> <command> [options]
-
-      Supported clients:
-        claude    Claude Code / Anthropic
-        codex     OpenAI Codex CLI
-        copilot   GitHub Copilot
-        cursor    Cursor IDE
-
-      Commands vary by client. Common commands include:
-        enable        Enable hooks for the client
-        disable       Disable hooks for the client
-        configure     Configure API credentials
-        status        Show integration status
-
-      Examples:
-        bluebear claude enable         Enable Claude Code hooks
-        bluebear claude disable        Disable Claude Code hooks
-        bluebear codex enable          Enable Codex hooks
-
-      Options:
-        -h, --help     Show this help message
-        -v, --version  Show version information
-
-      For client-specific help:
-        bluebear <client> --help
-
-      Documentation: https://app.bluebearsecurity.io/docs
-      EOF
+          echo "BlueBear - Unified CLI for AI Agent Governance"
+          echo ""
+          echo "Usage: bluebear <client> <command> [options]"
+          echo ""
+          echo "Supported clients:"
+          echo "  claude    Claude Code / Anthropic"
+          echo "  codex     OpenAI Codex CLI"
+          echo "  copilot   GitHub Copilot"
+          echo "  cursor    Cursor IDE"
+          echo ""
+          echo "Commands vary by client. Common commands include:"
+          echo "  enable        Enable hooks for the client"
+          echo "  disable       Disable hooks for the client"
+          echo "  configure     Configure API credentials"
+          echo "  status        Show integration status"
+          echo ""
+          echo "Examples:"
+          echo "  bluebear claude enable         Enable Claude Code hooks"
+          echo "  bluebear claude disable        Disable Claude Code hooks"
+          echo "  bluebear codex enable          Enable Codex hooks"
+          echo ""
+          echo "Options:"
+          echo "  -h, --help     Show this help message"
+          echo "  -v, --version  Show version information"
+          echo ""
+          echo "For client-specific help:"
+          echo "  bluebear <client> --help"
+          echo ""
+          echo "Documentation: https://app.bluebearsecurity.io/docs"
       }
 
       show_version() {
