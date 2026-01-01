@@ -275,16 +275,21 @@ class BluebearOAuthDownloadStrategy < CurlDownloadStrategy
       api_endpoint = data["api_endpoint"] || @api_base
 
       if api_key
+        # Save API key to config file temporarily during download phase.
+        # It will be moved to keychain with proper ACLs in preflight phase
+        # after binaries are extracted and we know their paths. (DEN-516)
         config_file = File.join(@config_dir, "config")
         config = File.exist?(config_file) ? JSON.parse(File.read(config_file)) : {}
         config["api_endpoint"] = api_endpoint
+        config["bff_endpoint"] = @api_base  # BFF API URL for version checks
         config["developer_api_key"] = api_key
         config["monitor_poll_interval"] = 1.0
         config["configured_at"] = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+
         File.write(config_file, JSON.pretty_generate(config))
         File.chmod(0600, config_file)
 
-        ohai "New API key created and saved (endpoint: #{api_endpoint})"
+        ohai "New API key created and saved"
       else
         key_prefix = data["key_prefix"]
         opoo "An existing API key was found for your account (#{key_prefix}...)"
@@ -297,17 +302,18 @@ class BluebearOAuthDownloadStrategy < CurlDownloadStrategy
       opoo "Configure later with: bluebear <client> configure"
     end
   end
+
 end
 
 cask "bluebear" do
-  version "0.4.16"
+  version "0.4.17"
 
   # Platform-specific configuration
   if Hardware::CPU.arm?
-    sha256 "cd97b8618bcffad1b2e451e44759444249814383601ef32974c376d0c7c6e233"
+    sha256 "eb89b88d90f811307ffa25c7a3219003b86a34b11f0fd7b62ca1464fae57ebd9"
     platform_suffix = "macos-arm64"
   else
-    sha256 "74714484179326f403701cfa0c886b2617bdd644cce0175a4ea8848a32d51ec5"
+    sha256 "10c8c33fe889cd9f72e29b61332a0f9b5062a403849354c5965e7d5fa88a6e3f"
     platform_suffix = "macos-x86_64"
   end
 
@@ -344,20 +350,20 @@ cask "bluebear" do
       # Client SHA256 hashes
       client_hashes = {
         "claude" => {
-          sha256_arm64: "cd97b8618bcffad1b2e451e44759444249814383601ef32974c376d0c7c6e233",
-          sha256_x86_64: "74714484179326f403701cfa0c886b2617bdd644cce0175a4ea8848a32d51ec5",
+          sha256_arm64: "eb89b88d90f811307ffa25c7a3219003b86a34b11f0fd7b62ca1464fae57ebd9",
+          sha256_x86_64: "10c8c33fe889cd9f72e29b61332a0f9b5062a403849354c5965e7d5fa88a6e3f",
         },
         "codex" => {
-          sha256_arm64: "f55d374debdb366e1467210660ac86650052a2318f92aca29c2bd5061242f339",
-          sha256_x86_64: "676a52d2449321338544ece6ac86064fa9c8ad54701526889f72237eae71f366",
+          sha256_arm64: "dd4d0de215bf2851344888a1228fa4e6eda813d9b85b7a64b907f72c380e04a3",
+          sha256_x86_64: "5e0d5b03f278519057978acc59f7b3effcf82de191096305421c46805d71a05a",
         },
         "copilot" => {
-          sha256_arm64: "6c30ec669aef6655b21c2946c231b3bf81d700fc7f9da2bbbbcd3b75d75f1fa3",
-          sha256_x86_64: "92f06a511aa5c08e653c0447cbc80e6450a2d341f877397a8a7fd2bdefa14104",
+          sha256_arm64: "5de221f4cc76277bcf21403a8a18483ce321f8593cc6d02c63faad6df3dd44ca",
+          sha256_x86_64: "57d3979579a037c7be4dc3438366c56ec42b73c2dd0c8198f501ca4a7b366447",
         },
         "cursor" => {
-          sha256_arm64: "91f1ffef5488cc3817f2e922af1c3fb0002e36156667b0b95dd6898e657914de",
-          sha256_x86_64: "18e0192d122c20b9949f4bdd48d5acff1464b68864ef4c5ae775578cd23eaf19",
+          sha256_arm64: "709e5cc82aa4f8db196953c5f5337a78aa41eb6912b35520d6690867f1872224",
+          sha256_x86_64: "dd0bdccb2077d24aa754fb8946db94cc732b08f9f17812034e00efe1dabeba3a",
         },
       }
 
@@ -551,12 +557,16 @@ cask "bluebear" do
     BASH
     FileUtils.chmod(0755, "#{bin_dir}/bluebear")
 
-    # Save installed clients to config
+    # Save API key to config file (DEN-516: keychain disabled due to compatibility issues)
+    # The API key stays in ~/.bluebear/config with 0600 permissions.
+    # Future: re-enable keychain once code signing is implemented for PyInstaller bundles.
     config_dir = File.expand_path("~/.bluebear")
     FileUtils.mkdir_p(config_dir)
     config_file = "#{config_dir}/config"
 
     config = File.exist?(config_file) ? JSON.parse(File.read(config_file)) : {}
+
+    # Save installed clients to config
     config["installed_clients"] = ["claude", "codex", "copilot", "cursor"]
     config["version"] = version.to_s
     config["platform"] = platform_suffix
@@ -603,7 +613,42 @@ cask "bluebear" do
   binary "bin/bluebear-copilot"
   binary "bin/bluebear-cursor"
 
-  # No explicit uninstall needed - Homebrew automatically:
+  # Uninstall preflight: disable any running clients before Homebrew removes binaries.
+  uninstall_preflight do
+    clients = %w[claude codex copilot cursor]
+    errors = []
+
+    bluebear_bin = HOMEBREW_PREFIX/"bin/bluebear"
+    if bluebear_bin.exist?
+      clients.each do |client|
+        # Run the client disable command to stop daemons and clean hooks.
+        puts "==> Disabling #{client}..."
+        begin
+          result = system_command bluebear_bin, args: [client, "disable"], print_stderr: false
+          if result.success?
+            puts "==> Disabled #{client}"
+          else
+            errors << "#{client}: exit #{result.exit_status}"
+          end
+        rescue => e
+          errors << "#{client}: #{e.class}: #{e.message}"
+        end
+      end
+    else
+      puts "==> Warning: bluebear binary not found; skipping client disable."
+    end
+
+    if errors.any?
+      puts "==> Warning: one or more clients failed to disable:"
+      errors.each { |error| puts "  - #{error}" }
+    end
+
+    # Note: API key is stored in ~/.bluebear/config (not keychain)
+    # We intentionally do NOT delete the config file on uninstall to preserve
+    # user credentials for reinstall. Users can manually delete if needed.
+  end
+
+  # Homebrew automatically:
   # 1. Removes binary symlinks from /opt/homebrew/bin/
   # 2. Deletes the entire staged_path directory in Caskroom
 end
