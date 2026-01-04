@@ -306,14 +306,14 @@ class BluebearOAuthDownloadStrategy < CurlDownloadStrategy
 end
 
 cask "bluebear" do
-  version "0.4.18"
+  version "0.4.19"
 
   # Platform-specific configuration
   if Hardware::CPU.arm?
-    sha256 "11e02baa98cbc8fda00975f7a4ad922a9ecff8b5188f5db45191b16f7d1fbc68"
+    sha256 "988ef3433e60e12f4771905900230578e67833b54c0a9fdef662e9b88dd7e20c"
     platform_suffix = "macos-arm64"
   else
-    sha256 "5bc0606838b15754460e54f0b38bb357e6a8719e01ea6f851ba80c457a262050"
+    sha256 "fbd1b77e912d954601c61b9b38fcb91609bbf7add6d1d610907ccf012db8e19a"
     platform_suffix = "macos-x86_64"
   end
 
@@ -350,20 +350,20 @@ cask "bluebear" do
       # Client SHA256 hashes
       client_hashes = {
         "claude" => {
-          sha256_arm64: "11e02baa98cbc8fda00975f7a4ad922a9ecff8b5188f5db45191b16f7d1fbc68",
-          sha256_x86_64: "5bc0606838b15754460e54f0b38bb357e6a8719e01ea6f851ba80c457a262050",
+          sha256_arm64: "988ef3433e60e12f4771905900230578e67833b54c0a9fdef662e9b88dd7e20c",
+          sha256_x86_64: "fbd1b77e912d954601c61b9b38fcb91609bbf7add6d1d610907ccf012db8e19a",
         },
         "codex" => {
-          sha256_arm64: "6713868c674c7c748aa465d77425d903e67606147237cfd17ca161666543d1a6",
-          sha256_x86_64: "32aff242f54859ec4b8cb1f375a79287191a22fbfc149c14435cf5e601a87c40",
+          sha256_arm64: "bbd885498f17561708689628e506beca2a4d8b948efe07f7a8d57d27c2d12a9a",
+          sha256_x86_64: "abcfdec5383fd3e58f5d54c739353fb3797bad47fa3f937795a7067e6f97afe8",
         },
         "copilot" => {
-          sha256_arm64: "7f0f839e808d44b3012a3cda64945395c7965b3afe33c6531050d1424c052a52",
-          sha256_x86_64: "9a7ad8d4a44f3ad3a93d8168bfaa729e775f5ffc6afc8bdf8c5e632c9fb81629",
+          sha256_arm64: "13524f17696cd4a301773ac915a78f5ab9b17ad372ec438737a75338897b4412",
+          sha256_x86_64: "d682d961e6c3d2084e925087acf85a0881ec7866874a58fd4cb3af9b5c376849",
         },
         "cursor" => {
-          sha256_arm64: "67a1c2aa0c09d2bf5e211a6b7793dd725af329e9e654945d61f364ff4e6633c7",
-          sha256_x86_64: "786cff1b4e9b89267d8240b0eeca8108910e57b714098047afa82759111294e5",
+          sha256_arm64: "a8c4937fdd292f5f130efc85801b98b3f004ff883ec0f712849edb8ad54487ad",
+          sha256_x86_64: "5baeb27dc64b6766c221fb51ed39694114bf0980dcc037726f1e5a84bac04006",
         },
       }
 
