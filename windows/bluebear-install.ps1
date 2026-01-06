@@ -40,7 +40,7 @@ $ConfigFile = Join-Path $ConfigDir "config"
 
 # Version - will be replaced by CI/CD for production releases
 # For PR environments, extract from API URL (e.g., api-pr-317 -> pr-317)
-$Version = "0.4.23"
+$Version = "0.4.24"
 
 # Detect PR version from API URL if not replaced by CI/CD
 if ($Version -eq "__VERSION__") {
