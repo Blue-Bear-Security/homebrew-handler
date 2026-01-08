@@ -40,7 +40,7 @@ $ConfigFile = Join-Path $ConfigDir "config"
 
 # Version - will be replaced by CI/CD for production releases
 # For PR environments, extract from API URL (e.g., api-pr-317 -> pr-317)
-$Version = "0.4.25"
+$Version = "0.4.26"
 
 # Detect PR version from API URL if not replaced by CI/CD
 if ($Version -eq "__VERSION__") {
@@ -535,6 +535,7 @@ if "%1"=="-h" goto :show_help
 if "%1"=="--help" goto :show_help
 if "%1"=="-v" goto :show_version
 if "%1"=="--version" goto :show_version
+if "%1"=="uninstall" goto :uninstall
 if "%1"=="migrate-key" goto :migrate_key
 if "%1"=="version" goto :version_subcommand
 
@@ -587,6 +588,76 @@ for %%c in (claude copilot cursor) do (
 echo Error: No BlueBear clients installed. >&2
 exit /b 1
 
+:uninstall
+REM Uninstall BlueBear completely
+REM Supports: --force (skip confirmation), --keep-config (preserve API key)
+set FORCE=
+set KEEP_CONFIG=
+:parse_uninstall_args
+if "%2"=="" goto :do_uninstall
+if "%2"=="--force" set FORCE=-Force
+if "%2"=="-f" set FORCE=-Force
+if "%2"=="--keep-config" set KEEP_CONFIG=-KeepConfig
+shift
+goto :parse_uninstall_args
+
+:do_uninstall
+powershell -ExecutionPolicy Bypass -Command ^
+$ErrorActionPreference = 'Stop'; ^
+$InstallDir = Join-Path $env:LOCALAPPDATA 'BlueBear'; ^
+$ConfigDir = Join-Path $env:USERPROFILE '.bluebear'; ^
+$BinDir = Join-Path $InstallDir 'bin'; ^
+$Force = '%FORCE%' -eq '-Force'; ^
+$KeepConfig = '%KEEP_CONFIG%' -eq '-KeepConfig'; ^
+Write-Host ''; ^
+Write-Host 'BlueBear Windows Uninstaller' -ForegroundColor Cyan; ^
+Write-Host '============================' -ForegroundColor Cyan; ^
+Write-Host ''; ^
+if (-not (Test-Path $InstallDir)) { Write-Host '==> BlueBear is not installed' -ForegroundColor Yellow; exit 0 }; ^
+if (-not $Force) { ^
+  $confirm = Read-Host 'Are you sure you want to uninstall BlueBear? (y/N)'; ^
+  if ($confirm -ne 'y' -and $confirm -ne 'Y') { Write-Host '==> Uninstall cancelled'; exit 0 } ^
+}; ^
+Write-Host '==> Stopping BlueBear daemons...' -ForegroundColor Cyan; ^
+Get-WmiObject Win32_Process -Filter \"Name = 'bluebear-hooks.exe'\" 2^>$null ^| ForEach-Object { $_.Terminate() ^| Out-Null }; ^
+Write-Host '==> Removing startup scripts...' -ForegroundColor Cyan; ^
+$startupFolder = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup'; ^
+@('BlueBear Claude Daemon.vbs','BlueBear Cursor Monitor.vbs','BlueBear Copilot Monitor.vbs') ^| ForEach-Object { ^
+  $f = Join-Path $startupFolder $_; if (Test-Path $f) { Remove-Item $f -Force } ^
+}; ^
+Write-Host '==> Removing Claude Code hooks...' -ForegroundColor Cyan; ^
+$claudeSettings = Join-Path $env:USERPROFILE '.claude\settings.json'; ^
+if (Test-Path $claudeSettings) { ^
+  try { ^
+    $s = Get-Content $claudeSettings -Raw ^| ConvertFrom-Json; ^
+    if ($s.hooks) { ^
+      $s.hooks.PSObject.Properties.Name ^| ForEach-Object { ^
+        $ht = $_; ^
+        $s.hooks.$ht = @($s.hooks.$ht ^| ForEach-Object { ^
+          if ($_.hooks) { $_.hooks = @($_.hooks ^| Where-Object { $_.command -notlike '*bluebear*' }) }; ^
+          if (-not $_.hooks -or $_.hooks.Count -gt 0) { $_ } ^
+        }) ^
+      }; ^
+      $s ^| ConvertTo-Json -Depth 10 ^| Set-Content $claudeSettings ^
+    } ^
+  } catch { } ^
+}; ^
+Write-Host '==> Removing from PATH...' -ForegroundColor Cyan; ^
+$p = [Environment]::GetEnvironmentVariable('PATH','User') -split ';' ^| Where-Object { $_ -ne $BinDir -and $_ }; ^
+[Environment]::SetEnvironmentVariable('PATH', ($p -join ';'), 'User'); ^
+Write-Host '==> Removing installation directory...' -ForegroundColor Cyan; ^
+if (Test-Path $InstallDir) { Remove-Item $InstallDir -Recurse -Force }; ^
+if (-not $KeepConfig) { ^
+  Write-Host '==> Removing configuration...' -ForegroundColor Cyan; ^
+  if (Test-Path $ConfigDir) { Remove-Item $ConfigDir -Recurse -Force } ^
+} else { ^
+  Write-Host '==> Keeping configuration at:' $ConfigDir -ForegroundColor Yellow ^
+}; ^
+Write-Host ''; ^
+Write-Host '==> BlueBear has been uninstalled' -ForegroundColor Green; ^
+Write-Host ''
+exit /b %errorlevel%
+
 :version_subcommand
 REM Handle 'bluebear version' and 'bluebear version --check'
 if "%2"=="--check" goto :version_check
@@ -622,6 +693,7 @@ echo   configure     Configure API credentials
 echo   status        Show integration status
 echo.
 echo Global commands:
+echo   uninstall     Uninstall BlueBear completely
 echo   migrate-key   Migrate API key to Windows Credential Manager
 echo   version       Show version (--check for updates)
 echo.
@@ -629,7 +701,8 @@ echo Examples:
 echo   bluebear claude enable         Enable Claude Code hooks
 echo   bluebear claude disable        Disable Claude Code hooks
 echo   bluebear cursor enable         Enable Cursor IDE hooks
-echo   bluebear migrate-key           Migrate API key
+echo   bluebear uninstall             Uninstall BlueBear
+echo   bluebear uninstall --force     Uninstall without confirmation
 echo   bluebear version --check       Check for updates
 echo.
 echo Options:
