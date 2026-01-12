@@ -17,12 +17,18 @@
 require "json"
 require "open3"
 
+# DEN-577: Environment configuration for multi-environment support
+# These constants are replaced by generate-formulas.sh during build
+BLUEBEAR_ENVIRONMENT = ""
+BLUEBEAR_ENV_SUFFIX = BLUEBEAR_ENVIRONMENT.empty? ? "" : "-#{BLUEBEAR_ENVIRONMENT}"
+BINARY_PREFIX = "bluebear"
+
 # Custom download strategy that handles OAuth device flow authentication
 class BluebearOAuthDownloadStrategy < CurlDownloadStrategy
   def initialize(url, name, version, **meta)
     @api_base = ENV.fetch("BLUEDEN_API_URL", "https://api.bluebearsecurity.io")
     @console_url = ENV.fetch("BLUEDEN_CONSOLE_URL", "https://app.bluebearsecurity.io")
-    @config_dir = File.expand_path("~/.bluebear")
+    @config_dir = File.expand_path("~/.bluebear#{BLUEBEAR_ENV_SUFFIX}")
     super
   end
 
@@ -306,14 +312,14 @@ class BluebearOAuthDownloadStrategy < CurlDownloadStrategy
 end
 
 cask "bluebear" do
-  version "0.4.26"
+  version "0.4.27"
 
   # Platform-specific configuration
   if Hardware::CPU.arm?
-    sha256 "18f1999e15c0be072b7ed4cab0eb14bc0c399a41bb70a9c10cc55b94bf4c5134"
+    sha256 "715fb12205934bb2a4ab41af9c33987b79ab7471da4ba8a94cd35d2aec9df7ee"
     platform_suffix = "macos-arm64"
   else
-    sha256 "246d316fdb11dd062c3d534b38851c2c431fbbd9ae7e09bcb9ac821aca3189db"
+    sha256 "00412dfc6a1d4057632da6e632656388cc34cc2475d0bc62e08d25f54dc2ae6a"
     platform_suffix = "macos-x86_64"
   end
 
@@ -330,7 +336,7 @@ cask "bluebear" do
   preflight do
     begin
       # Write to a file to prove preflight runs (stdout might be suppressed)
-      debug_log = File.expand_path("~/.bluebear/preflight_debug.log")
+      debug_log = File.expand_path("~/.bluebear#{BLUEBEAR_ENV_SUFFIX}/preflight_debug.log")
       FileUtils.mkdir_p(File.dirname(debug_log))
       File.open(debug_log, "w") do |f|
         f.puts "Preflight started at #{Time.now}"
@@ -350,20 +356,20 @@ cask "bluebear" do
       # Client SHA256 hashes
       client_hashes = {
         "claude" => {
-          sha256_arm64: "18f1999e15c0be072b7ed4cab0eb14bc0c399a41bb70a9c10cc55b94bf4c5134",
-          sha256_x86_64: "246d316fdb11dd062c3d534b38851c2c431fbbd9ae7e09bcb9ac821aca3189db",
+          sha256_arm64: "715fb12205934bb2a4ab41af9c33987b79ab7471da4ba8a94cd35d2aec9df7ee",
+          sha256_x86_64: "00412dfc6a1d4057632da6e632656388cc34cc2475d0bc62e08d25f54dc2ae6a",
         },
         "codex" => {
-          sha256_arm64: "3c080b852e8c22548d4250fd7b1e92f6330308b605242b02fcdb7ccfc1b8ea14",
-          sha256_x86_64: "0dfc92b5051fd66eea2c30c831e3de86f1cd1ef10f61c23c2bcb3e0fc5490805",
+          sha256_arm64: "c12b652a91827ab1a154b00705e80be2ff50f32a468c2e03db1c7809acbce6f1",
+          sha256_x86_64: "5de4bf728ebd334daccbdd9df6e43e54d04bff35436834dd129cb011a899eeb0",
         },
         "copilot" => {
-          sha256_arm64: "8b5fd3e652901ac3c2b4f7774065e19fc49c85137ef8929a117653f9c0f97e9d",
-          sha256_x86_64: "87a712a7d31f6328c0d9d0e417216465ac51707d09c6d1cb28d1a1dd7dd06d3f",
+          sha256_arm64: "6effd90fcc01c9fca5c7c96cd30b4b47648cbb523ef6dda4d7787065cdf18519",
+          sha256_x86_64: "1695e57ad6de82559510dc8f21969d84f0a64fc245e0e9d25cce69a20e6cdf9d",
         },
         "cursor" => {
-          sha256_arm64: "e2f1a9550b88636a83ba7d531579ba49416b94fdab93950e37e1b6d6767f2c51",
-          sha256_x86_64: "d6648df1d4b618d687eea5b3143abb0b19f0a46a37da872463f7ea668a8cd9bf",
+          sha256_arm64: "e0e09c73604e34d0ab083bb73df5793f8ca217000a91a6c9a0c8028254ffc6a3",
+          sha256_x86_64: "8b91cf2cc8bb88a92e11688cf5b5935e2091a623a0081c9432d7e7692331dbd2",
         },
       }
 
@@ -371,7 +377,7 @@ cask "bluebear" do
       api_base = ENV.fetch("BLUEDEN_API_URL", "https://api.bluebearsecurity.io")
 
       # Get JWT token saved during download (in ~/.bluebear/install.jwt)
-      jwt_file = File.expand_path("~/.bluebear/install.jwt")
+      jwt_file = File.expand_path("~/.bluebear#{BLUEBEAR_ENV_SUFFIX}/install.jwt")
       jwt_token = File.exist?(jwt_file) ? File.read(jwt_file).strip : nil
 
       File.open(debug_log, "a") do |f|
@@ -468,9 +474,10 @@ cask "bluebear" do
     ["claude", "codex", "copilot", "cursor"].each do |client|
       binary_path = "#{staged_path}/bluebear-#{client}/bluebear-hooks"
       if File.exist?(binary_path)
-        wrapper_path = "#{bin_dir}/bluebear-#{client}"
+        wrapper_path = "#{bin_dir}/#{BINARY_PREFIX}-#{client}"
         File.write(wrapper_path, <<~BASH)
           #!/bin/bash
+          export BLUEBEAR_ENVIRONMENT="#{BLUEBEAR_ENVIRONMENT}"
           exec "#{binary_path}" "$@"
         BASH
         FileUtils.chmod(0755, wrapper_path)
@@ -483,18 +490,21 @@ cask "bluebear" do
       opoo "Final staged_path contents: #{Dir["#{staged_path}/**/*"].first(20).join(', ')}"
     end
 
-    # Create unified 'bluebear' wrapper
-    File.write("#{bin_dir}/bluebear", <<~BASH)
+    # Create unified wrapper (environment-specific binary name)
+    File.write("#{bin_dir}/#{BINARY_PREFIX}", <<~BASH)
       #!/bin/bash
       # BlueBear unified CLI wrapper
-      # Usage: bluebear <client> <command> [options]
+      # Usage: #{BINARY_PREFIX} <client> <command> [options]
 
       set -e
+
+      # DEN-577: Export environment for multi-environment support
+      export BLUEBEAR_ENVIRONMENT="#{BLUEBEAR_ENVIRONMENT}"
 
       show_help() {
           echo "BlueBear - Unified CLI for AI Agent Governance"
           echo ""
-          echo "Usage: bluebear <client> <command> [options]"
+          echo "Usage: #{BINARY_PREFIX} <client> <command> [options]"
           echo ""
           echo "Supported clients:"
           echo "  claude    Claude Code / Anthropic"
@@ -509,22 +519,22 @@ cask "bluebear" do
           echo "  status        Show integration status"
           echo ""
           echo "Examples:"
-          echo "  bluebear claude enable         Enable Claude Code hooks"
-          echo "  bluebear claude disable        Disable Claude Code hooks"
-          echo "  bluebear codex enable          Enable Codex hooks"
+          echo "  #{BINARY_PREFIX} claude enable         Enable Claude Code hooks"
+          echo "  #{BINARY_PREFIX} claude disable        Disable Claude Code hooks"
+          echo "  #{BINARY_PREFIX} codex enable          Enable Codex hooks"
           echo ""
           echo "Options:"
           echo "  -h, --help     Show this help message"
           echo "  -v, --version  Show version information"
           echo ""
           echo "For client-specific help:"
-          echo "  bluebear <client> --help"
+          echo "  #{BINARY_PREFIX} <client> --help"
           echo ""
           echo "Documentation: https://app.bluebearsecurity.io/docs"
       }
 
       show_version() {
-          echo "bluebear version #{version}"
+          echo "#{BINARY_PREFIX} version #{version}"
       }
 
       case "${1:-}" in
@@ -555,12 +565,12 @@ cask "bluebear" do
               ;;
       esac
     BASH
-    FileUtils.chmod(0755, "#{bin_dir}/bluebear")
+    FileUtils.chmod(0755, "#{bin_dir}/#{BINARY_PREFIX}")
 
     # Save API key to config file (DEN-516: keychain disabled due to compatibility issues)
     # The API key stays in ~/.bluebear/config with 0600 permissions.
     # Future: re-enable keychain once code signing is implemented for PyInstaller bundles.
-    config_dir = File.expand_path("~/.bluebear")
+    config_dir = File.expand_path("~/.bluebear#{BLUEBEAR_ENV_SUFFIX}")
     FileUtils.mkdir_p(config_dir)
     config_file = "#{config_dir}/config"
 
@@ -582,18 +592,18 @@ cask "bluebear" do
     puts "Clients are installed but \e[32mnot yet enabled\e[0m."
     puts ""
     puts "\e[32mEnable each client:\e[0m"
-    puts "  bluebear claude enable"
-    puts "  bluebear codex enable"
-    puts "  bluebear copilot enable"
-    puts "  bluebear cursor enable"
+    puts "  #{BINARY_PREFIX} claude enable"
+    puts "  #{BINARY_PREFIX} codex enable"
+    puts "  #{BINARY_PREFIX} copilot enable"
+    puts "  #{BINARY_PREFIX} cursor enable"
     puts ""
     puts "To disable:"
-    puts "  bluebear claude disable"
-    puts "  bluebear codex disable"
-    puts "  bluebear copilot disable"
-    puts "  bluebear cursor disable"
+    puts "  #{BINARY_PREFIX} claude disable"
+    puts "  #{BINARY_PREFIX} codex disable"
+    puts "  #{BINARY_PREFIX} copilot disable"
+    puts "  #{BINARY_PREFIX} cursor disable"
     puts ""
-    puts "Your configuration is stored in: ~/.bluebear/config"
+    puts "Your configuration is stored in: ~/.bluebear#{BLUEBEAR_ENV_SUFFIX}/config"
     puts ""
     puts "Documentation: https://app.bluebearsecurity.io/docs"
     puts ""
@@ -607,18 +617,18 @@ cask "bluebear" do
 
   # Symlink wrapper scripts to Homebrew bin
   # All clients are downloaded in preflight - if any fail, wrapper won't exist
-  binary "bin/bluebear"
-  binary "bin/bluebear-claude"
-  binary "bin/bluebear-codex"
-  binary "bin/bluebear-copilot"
-  binary "bin/bluebear-cursor"
+  binary "bin/#{BINARY_PREFIX}"
+  binary "bin/#{BINARY_PREFIX}-claude"
+  binary "bin/#{BINARY_PREFIX}-codex"
+  binary "bin/#{BINARY_PREFIX}-copilot"
+  binary "bin/#{BINARY_PREFIX}-cursor"
 
   # Uninstall preflight: disable any running clients before Homebrew removes binaries.
   uninstall_preflight do
     clients = %w[claude codex copilot cursor]
     errors = []
 
-    bluebear_bin = HOMEBREW_PREFIX/"bin/bluebear"
+    bluebear_bin = HOMEBREW_PREFIX/"bin/#{BINARY_PREFIX}"
     if bluebear_bin.exist?
       clients.each do |client|
         # Run the client disable command to stop daemons and clean hooks.
@@ -635,7 +645,7 @@ cask "bluebear" do
         end
       end
     else
-      puts "==> Warning: bluebear binary not found; skipping client disable."
+      puts "==> Warning: #{BINARY_PREFIX} binary not found; skipping client disable."
     end
 
     if errors.any?
@@ -643,9 +653,13 @@ cask "bluebear" do
       errors.each { |error| puts "  - #{error}" }
     end
 
-    # Note: API key is stored in ~/.bluebear/config (not keychain)
-    # We intentionally do NOT delete the config file on uninstall to preserve
-    # user credentials for reinstall. Users can manually delete if needed.
+    # DEN-577: Remove config directory on uninstall
+    config_dir = File.expand_path("~/.bluebear#{BLUEBEAR_ENV_SUFFIX}")
+    if Dir.exist?(config_dir)
+      puts "==> Removing config directory: #{config_dir}"
+      FileUtils.rm_rf(config_dir)
+      puts "==> Config directory removed"
+    end
   end
 
   # Homebrew automatically:
