@@ -1,5 +1,6 @@
 # BlueBear Windows Installer
 # DEN-275: PowerShell installer script with OAuth device flow authentication
+# DEN-750: Updated for single binary architecture (unified handler)
 #
 # Usage:
 #   # Interactive install (opens browser for authentication)
@@ -35,39 +36,39 @@ if (-not $InstallDir) {
     $InstallDir = Join-Path $env:LOCALAPPDATA "BlueBear"
 }
 $BinDir = Join-Path $InstallDir "bin"
-$ConfigDir = Join-Path $env:USERPROFILE ".bluebear"
-$ConfigFile = Join-Path $ConfigDir "config"
 
-# Version - will be replaced by CI/CD for production releases
-# For PR environments, extract from API URL (e.g., api-pr-317 -> pr-317)
-$Version = "0.4.27"
+# Version - will be replaced by CI/CD (e.g., 0.0.478 for PR, 1.2.3 for prod)
+$Version = "0.5.0"
 
 # Detect PR version from API URL if not replaced by CI/CD
 if ($Version -eq "__VERSION__") {
     if ($ApiUrl -match "api-pr-(\d+)") {
-        $Version = "pr-$($Matches[1])"
+        # For local dev: use PR number as version for S3 path compatibility
+        $Version = "0.0.$($Matches[1])"
     } else {
         # Fallback to latest for production when version not set
         $Version = "latest"
     }
 }
 
-# Client configurations
-# Note: Codex is not available on Windows (macOS/Linux only)
-$Clients = @{
-    "claude" = @{
-        Name = "Claude Code"
-        S3Path = "claude-hooks"
-    }
-    "copilot" = @{
-        Name = "GitHub Copilot"
-        S3Path = "copilot-hooks"
-    }
-    "cursor" = @{
-        Name = "Cursor IDE"
-        S3Path = "cursor-hooks"
-    }
+# DEN-750: Detect environment from API URL for config dir and exe naming
+# This is separate from Version because Version is used for S3 download path
+$Environment = ""
+if ($ApiUrl -match "api-pr-(\d+)") {
+    $Environment = "pr-$($Matches[1])"
 }
+
+# DEN-750: Config directory matches Go binary's environmentSuffix
+# PR environments use .bluebear-pr-{N}, production uses .bluebear
+if ($Environment -match "^pr-\d+$") {
+    $ConfigDir = Join-Path $env:USERPROFILE ".bluebear-$Environment"
+} else {
+    $ConfigDir = Join-Path $env:USERPROFILE ".bluebear"
+}
+$ConfigFile = Join-Path $ConfigDir "config"
+
+# DEN-750: Single binary architecture
+# All clients (Claude, Copilot, Cursor, Codex) are now handled by a single unified binary
 
 # Helper functions
 function Write-Status {
@@ -379,39 +380,37 @@ function New-ApiKey {
             $errorMsg = $response.error
             if (-not $errorMsg) { $errorMsg = "Unknown error" }
             Write-Status "API key creation failed: $errorMsg" -Type "Error"
-            Write-Detail "Configure later with: bluebear <client> configure"
+            Write-Detail "Configure later with: bluebear configure"
             return $false
         }
     } catch {
         Write-Status "Could not set up API key: $_" -Type "Warning"
-        Write-Detail "Configure later with: bluebear <client> configure"
+        Write-Detail "Configure later with: bluebear configure"
         return $false
     }
 }
 
-function Get-ClientBinary {
+function Get-BlueBearBinary {
+    # DEN-750: Downloads the single unified BlueBear binary
+    # Downloads from: bluebear/v{version}/windows-x86_64/bluebear-windows-x86_64.exe.zip
     param(
-        [string]$Client,
         [string]$JwtToken
     )
 
-    $clientInfo = $Clients[$Client]
-    $s3Path = $clientInfo.S3Path
     $platform = "windows-x86_64"
-    $binaryName = "bluebear-$Client-hooks-$platform.exe"
+    $binaryName = "bluebear-$platform.exe"
     $zipName = "$binaryName.zip"
     $checksumName = "$zipName.sha256"
 
     # Handle "latest" version specially - don't prefix with "v"
     $versionPath = if ($Version -eq "latest") { "latest" } else { "v$Version" }
-    $downloadUrl = "$ApiUrl/api/v1/bff/download/$s3Path/$versionPath/$platform/$zipName"
-    $checksumUrl = "$ApiUrl/api/v1/bff/download/$s3Path/$versionPath/$platform/$checksumName"
+    $downloadUrl = "$ApiUrl/api/v1/bff/download/bluebear/$versionPath/$platform/$zipName"
+    $checksumUrl = "$ApiUrl/api/v1/bff/download/bluebear/$versionPath/$platform/$checksumName"
     $zipPath = Join-Path $env:TEMP $zipName
     $checksumPath = Join-Path $env:TEMP $checksumName
-    $extractPath = Join-Path $env:TEMP "bluebear-$Client-extract"
-    $clientDir = Join-Path $InstallDir "bluebear-$Client"
+    $extractPath = Join-Path $env:TEMP "bluebear-extract"
 
-    Write-Status "Downloading $($clientInfo.Name)..."
+    Write-Status "Downloading BlueBear..."
 
     try {
         $headers = @{ "Authorization" = "Bearer $JwtToken" }
@@ -467,19 +466,14 @@ function Get-ClientBinary {
             $sourcePath = $extractPath
         }
 
-        # Create client directory
-        if (Test-Path $clientDir) {
-            Remove-Item -Path $clientDir -Recurse -Force
-        }
-        New-Item -ItemType Directory -Path $clientDir -Force | Out-Null
+        # Copy files to install directory
+        Copy-Item -Path "$sourcePath\*" -Destination $InstallDir -Recurse -Force
 
-        # Copy files
-        Copy-Item -Path "$sourcePath\*" -Destination $clientDir -Recurse -Force
-
-        # Rename platform-specific binary to standard name
-        # e.g., bluebear-claude-hooks-windows-x86_64.exe -> bluebear-hooks.exe
-        $platformBinary = Join-Path $clientDir $binaryName
-        $standardBinary = Join-Path $clientDir "bluebear-hooks.exe"
+        # Rename platform-specific binary to environment-specific name
+        # Production: bluebear.exe, PR: bluebear-pr-{N}.exe
+        $platformBinary = Join-Path $InstallDir "bluebear-$platform.exe"
+        $exeName = if ($Environment) { "bluebear-$Environment.exe" } else { "bluebear.exe" }
+        $standardBinary = Join-Path $InstallDir $exeName
         if (Test-Path $platformBinary) {
             Move-Item -Path $platformBinary -Destination $standardBinary -Force
         }
@@ -488,240 +482,146 @@ function Get-ClientBinary {
         Remove-Item -Path $zipPath -Force -ErrorAction SilentlyContinue
         Remove-Item -Path $extractPath -Recurse -Force -ErrorAction SilentlyContinue
 
-        Write-Status "Installed $($clientInfo.Name)" -Type "Success"
+        Write-Status "Downloaded BlueBear binary" -Type "Success"
         return $true
     } catch {
-        Write-Status "Failed to download $($clientInfo.Name): $_" -Type "Error"
+        Write-Status "Failed to download BlueBear: $_" -Type "Error"
         return $false
     }
 }
 
+function Copy-UninstallScript {
+    # Bundle uninstall script with the installation (version-matched)
+    # This ensures users always have an uninstaller that matches their installed version
+    Write-Status "Bundling uninstall script..."
+
+    # Determine executable name based on environment
+    $exeName = if ($Environment) { "bluebear-$Environment.exe" } else { "bluebear.exe" }
+
+    $uninstallPath = Join-Path $InstallDir "uninstall.ps1"
+    $uninstallContent = @"
+# BlueBear Windows Uninstaller (bundled with installation)
+# Run: bluebear-uninstall
+#      or: powershell -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\BlueBear\uninstall.ps1"
+
+param([switch]`$KeepConfig, [switch]`$Force)
+
+`$ErrorActionPreference = "Stop"
+`$InstallDir = Join-Path `$env:LOCALAPPDATA "BlueBear"
+`$BinDir = Join-Path `$InstallDir "bin"
+`$ConfigDir = "$ConfigDir"
+
+# Change to user's home directory to avoid "path not found" errors
+# when uninstall deletes the current working directory
+Set-Location `$env:USERPROFILE
+
+Write-Host ""
+Write-Host "BlueBear Windows Uninstaller" -ForegroundColor Cyan
+Write-Host "============================" -ForegroundColor Cyan
+Write-Host ""
+
+if (-not (Test-Path `$InstallDir)) {
+    Write-Host "==> BlueBear is not installed" -ForegroundColor Yellow
+    exit 0
+}
+
+if (-not `$Force) {
+    `$confirm = Read-Host "Are you sure you want to uninstall BlueBear? (y/N)"
+    if (`$confirm -ne "y" -and `$confirm -ne "Y") {
+        Write-Host "==> Uninstall cancelled"
+        exit 0
+    }
+}
+
+# Run bluebear disable to clean up hooks and daemon
+`$bluebearExe = Join-Path `$InstallDir "$exeName"
+if (Test-Path `$bluebearExe) {
+    Write-Host "==> Running BlueBear cleanup..." -ForegroundColor Cyan
+    try { & `$bluebearExe disable 2>&1 | ForEach-Object { Write-Host "    `$_" -ForegroundColor Gray } } catch {}
+}
+
+# Stop any remaining processes
+Write-Host "==> Stopping BlueBear processes..." -ForegroundColor Cyan
+Get-Process -Name "bluebear*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
+# Remove from PATH
+Write-Host "==> Removing from PATH..." -ForegroundColor Cyan
+`$path = [Environment]::GetEnvironmentVariable("PATH", "User")
+`$newPath = (`$path -split ";" | Where-Object { `$_ -ne `$BinDir -and `$_ }) -join ";"
+[Environment]::SetEnvironmentVariable("PATH", `$newPath, "User")
+
+# Remove PowerShell completion
+Write-Host "==> Removing PowerShell completion..." -ForegroundColor Cyan
+try {
+    `$profileDir = Split-Path -Parent `$PROFILE
+    # Remove completion files
+    Get-ChildItem -Path `$profileDir -Filter "bluebear*.completion.ps1" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+    # Clean profile
+    if (Test-Path `$PROFILE) {
+        `$content = Get-Content `$PROFILE -Raw -ErrorAction SilentlyContinue
+        if (`$content) {
+            `$newContent = `$content -replace '(?m)^\s*# BlueBear CLI completion\s*\r?\n\s*if \(Test-Path "[^"]*bluebear[^"]*\.completion\.ps1"\) \{ \. "[^"]*" \}\s*\r?\n?', ''
+            if (`$newContent -ne `$content) { [System.IO.File]::WriteAllText(`$PROFILE, `$newContent) }
+        }
+    }
+} catch {}
+
+# Remove startup scripts
+Write-Host "==> Removing startup scripts..." -ForegroundColor Cyan
+`$startupFolder = Join-Path `$env:APPDATA "Microsoft\Windows\Start Menu\Programs\Startup"
+Remove-Item "`$startupFolder\BlueBear*.vbs" -Force -ErrorAction SilentlyContinue
+
+# Remove installation directory
+Write-Host "==> Removing installation directory..." -ForegroundColor Cyan
+Remove-Item -Path `$InstallDir -Recurse -Force -ErrorAction SilentlyContinue
+
+# Remove config directory
+if (-not `$KeepConfig) {
+    Write-Host "==> Removing configuration..." -ForegroundColor Cyan
+    Remove-Item -Path `$ConfigDir -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+Write-Host ""
+Write-Host "==> BlueBear has been uninstalled" -ForegroundColor Green
+Write-Host ""
+"@
+
+    Set-Content -Path $uninstallPath -Value $uninstallContent -Encoding UTF8
+    Write-Status "Bundled uninstall script" -Type "Success"
+}
+
 function New-WrapperScripts {
+    # DEN-750: Creates wrapper scripts for the unified binary
+    # PR environments use env-suffixed names (bluebear-pr-478, bluebear-pr-478-uninstall)
     Write-Status "Creating wrapper scripts..."
 
     if (-not (Test-Path $BinDir)) {
         New-Item -ItemType Directory -Path $BinDir -Force | Out-Null
     }
 
-    $installedClients = @()
+    # Determine names based on environment
+    $exeBaseName = if ($Environment) { "bluebear-$Environment" } else { "bluebear" }
 
-    # Create individual client wrappers
-    foreach ($client in $Clients.Keys) {
-        $clientDir = Join-Path $InstallDir "bluebear-$client"
-        $binaryPath = Join-Path $clientDir "bluebear-hooks.exe"
-
-        if (Test-Path $binaryPath) {
-            $wrapperPath = Join-Path $BinDir "bluebear-$client.bat"
-            $wrapperContent = @"
+    # Create main wrapper that calls the binary directly
+    $mainWrapperPath = Join-Path $BinDir "$exeBaseName.bat"
+    $mainWrapperContent = @"
 @echo off
-"%LOCALAPPDATA%\BlueBear\bluebear-$client\bluebear-hooks.exe" %*
+"%LOCALAPPDATA%\BlueBear\$exeBaseName.exe" %*
 "@
-            Set-Content -Path $wrapperPath -Value $wrapperContent -Encoding ASCII
-            $installedClients += $client
-        }
-    }
-
-    # Create unified 'bluebear' wrapper
-    $mainWrapperPath = Join-Path $BinDir "bluebear.bat"
-    $mainWrapperContent = @'
-@echo off
-setlocal enabledelayedexpansion
-
-REM BlueBear unified CLI wrapper
-REM Usage: bluebear <client> <command> [options]
-
-if "%1"=="" goto :show_help
-if "%1"=="-h" goto :show_help
-if "%1"=="--help" goto :show_help
-if "%1"=="-v" goto :show_version
-if "%1"=="--version" goto :show_version
-if "%1"=="uninstall" goto :uninstall
-if "%1"=="migrate-key" goto :migrate_key
-if "%1"=="version" goto :version_subcommand
-
-set CLIENT=%1
-
-REM Build remaining args (skip first arg) - %* doesn't update after shift
-set ARGS=
-shift
-:build_args
-if "%1"=="" goto :check_client
-set ARGS=!ARGS! %1
-shift
-goto :build_args
-
-:check_client
-REM Route to client binary (codex not supported on Windows)
-if "%CLIENT%"=="claude" goto :run_client
-if "%CLIENT%"=="copilot" goto :run_client
-if "%CLIENT%"=="cursor" goto :run_client
-if "%CLIENT%"=="codex" (
-    echo Error: Codex is not supported on Windows. >&2
-    exit /b 1
-)
-
-echo Error: Unknown client: %CLIENT% >&2
-echo Supported clients: claude, copilot, cursor >&2
-exit /b 1
-
-:run_client
-set INSTALL_DIR=%LOCALAPPDATA%\BlueBear
-set BINARY=%INSTALL_DIR%\bluebear-%CLIENT%\bluebear-hooks.exe
-if not exist "%BINARY%" (
-    echo Error: Client '%CLIENT%' is not installed. >&2
-    echo Expected: %BINARY% >&2
-    exit /b 1
-)
-"%BINARY%" !ARGS!
-exit /b !errorlevel!
-
-:migrate_key
-REM Try any installed client for migrate-key
-set INSTALL_DIR=%LOCALAPPDATA%\BlueBear
-for %%c in (claude copilot cursor) do (
-    set BINARY=!INSTALL_DIR!\bluebear-%%c\bluebear-hooks.exe
-    if exist "!BINARY!" (
-        "!BINARY!" migrate-key
-        exit /b !errorlevel!
-    )
-)
-echo Error: No BlueBear clients installed. >&2
-exit /b 1
-
-:uninstall
-REM Uninstall BlueBear completely
-REM Supports: --force (skip confirmation), --keep-config (preserve API key)
-set FORCE=
-set KEEP_CONFIG=
-:parse_uninstall_args
-if "%2"=="" goto :do_uninstall
-if "%2"=="--force" set FORCE=-Force
-if "%2"=="-f" set FORCE=-Force
-if "%2"=="--keep-config" set KEEP_CONFIG=-KeepConfig
-shift
-goto :parse_uninstall_args
-
-:do_uninstall
-powershell -ExecutionPolicy Bypass -Command ^
-$ErrorActionPreference = 'Stop'; ^
-$InstallDir = Join-Path $env:LOCALAPPDATA 'BlueBear'; ^
-$ConfigDir = Join-Path $env:USERPROFILE '.bluebear'; ^
-$BinDir = Join-Path $InstallDir 'bin'; ^
-$Force = '%FORCE%' -eq '-Force'; ^
-$KeepConfig = '%KEEP_CONFIG%' -eq '-KeepConfig'; ^
-Write-Host ''; ^
-Write-Host 'BlueBear Windows Uninstaller' -ForegroundColor Cyan; ^
-Write-Host '============================' -ForegroundColor Cyan; ^
-Write-Host ''; ^
-if (-not (Test-Path $InstallDir)) { Write-Host '==> BlueBear is not installed' -ForegroundColor Yellow; exit 0 }; ^
-if (-not $Force) { ^
-  $confirm = Read-Host 'Are you sure you want to uninstall BlueBear? (y/N)'; ^
-  if ($confirm -ne 'y' -and $confirm -ne 'Y') { Write-Host '==> Uninstall cancelled'; exit 0 } ^
-}; ^
-Write-Host '==> Stopping BlueBear daemons...' -ForegroundColor Cyan; ^
-Get-WmiObject Win32_Process -Filter \"Name = 'bluebear-hooks.exe'\" 2^>$null ^| ForEach-Object { $_.Terminate() ^| Out-Null }; ^
-Write-Host '==> Removing startup scripts...' -ForegroundColor Cyan; ^
-$startupFolder = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup'; ^
-@('BlueBear Claude Daemon.vbs','BlueBear Cursor Monitor.vbs','BlueBear Copilot Monitor.vbs') ^| ForEach-Object { ^
-  $f = Join-Path $startupFolder $_; if (Test-Path $f) { Remove-Item $f -Force } ^
-}; ^
-Write-Host '==> Removing Claude Code hooks...' -ForegroundColor Cyan; ^
-$claudeSettings = Join-Path $env:USERPROFILE '.claude\settings.json'; ^
-if (Test-Path $claudeSettings) { ^
-  try { ^
-    $s = Get-Content $claudeSettings -Raw ^| ConvertFrom-Json; ^
-    if ($s.hooks) { ^
-      $s.hooks.PSObject.Properties.Name ^| ForEach-Object { ^
-        $ht = $_; ^
-        $s.hooks.$ht = @($s.hooks.$ht ^| ForEach-Object { ^
-          if ($_.hooks) { $_.hooks = @($_.hooks ^| Where-Object { $_.command -notlike '*bluebear*' }) }; ^
-          if (-not $_.hooks -or $_.hooks.Count -gt 0) { $_ } ^
-        }) ^
-      }; ^
-      $s ^| ConvertTo-Json -Depth 10 ^| Set-Content $claudeSettings ^
-    } ^
-  } catch { } ^
-}; ^
-Write-Host '==> Removing from PATH...' -ForegroundColor Cyan; ^
-$p = [Environment]::GetEnvironmentVariable('PATH','User') -split ';' ^| Where-Object { $_ -ne $BinDir -and $_ }; ^
-[Environment]::SetEnvironmentVariable('PATH', ($p -join ';'), 'User'); ^
-Write-Host '==> Removing installation directory...' -ForegroundColor Cyan; ^
-if (Test-Path $InstallDir) { Remove-Item $InstallDir -Recurse -Force }; ^
-if (-not $KeepConfig) { ^
-  Write-Host '==> Removing configuration...' -ForegroundColor Cyan; ^
-  if (Test-Path $ConfigDir) { Remove-Item $ConfigDir -Recurse -Force } ^
-} else { ^
-  Write-Host '==> Keeping configuration at:' $ConfigDir -ForegroundColor Yellow ^
-}; ^
-Write-Host ''; ^
-Write-Host '==> BlueBear has been uninstalled' -ForegroundColor Green; ^
-Write-Host ''
-exit /b %errorlevel%
-
-:version_subcommand
-REM Handle 'bluebear version' and 'bluebear version --check'
-if "%2"=="--check" goto :version_check
-goto :show_version
-
-:version_check
-REM Try any installed client for version check
-set INSTALL_DIR=%LOCALAPPDATA%\BlueBear
-for %%c in (claude copilot cursor) do (
-    set BINARY=!INSTALL_DIR!\bluebear-%%c\bluebear-hooks.exe
-    if exist "!BINARY!" (
-        "!BINARY!" version --check
-        exit /b !errorlevel!
-    )
-)
-echo Error: No BlueBear clients installed. >&2
-exit /b 1
-
-:show_help
-echo BlueBear - Unified CLI for AI Agent Governance
-echo.
-echo Usage: bluebear ^<client^> ^<command^> [options]
-echo.
-echo Supported clients:
-echo   claude    Claude Code / Anthropic
-echo   copilot   GitHub Copilot
-echo   cursor    Cursor IDE
-echo.
-echo Commands vary by client. Common commands include:
-echo   enable        Enable hooks for the client
-echo   disable       Disable hooks for the client
-echo   configure     Configure API credentials
-echo   status        Show integration status
-echo.
-echo Global commands:
-echo   uninstall     Uninstall BlueBear completely
-echo   migrate-key   Migrate API key to Windows Credential Manager
-echo   version       Show version (--check for updates)
-echo.
-echo Examples:
-echo   bluebear claude enable         Enable Claude Code hooks
-echo   bluebear claude disable        Disable Claude Code hooks
-echo   bluebear cursor enable         Enable Cursor IDE hooks
-echo   bluebear uninstall             Uninstall BlueBear
-echo   bluebear uninstall --force     Uninstall without confirmation
-echo   bluebear version --check       Check for updates
-echo.
-echo Options:
-echo   -h, --help     Show this help message
-echo   -v, --version  Show version information
-echo.
-echo Documentation: https://app.bluebearsecurity.io/docs
-exit /b 0
-
-:show_version
-'@
-    # Replace docs URL with configured console URL and append version line
-    $mainWrapperContent = $mainWrapperContent -replace 'https://app.bluebearsecurity.io/docs', "$ConsoleUrl/docs"
-    $mainWrapperContent += "`necho bluebear version $Version`nexit /b 0"
-
     Set-Content -Path $mainWrapperPath -Value $mainWrapperContent -Encoding ASCII
 
+    # Create uninstall wrapper that runs the bundled uninstall script
+    # Note: The 2>nul suppresses "system cannot find the path specified" errors that occur
+    # when the batch file is deleted during uninstall (the uninstall still succeeds)
+    $uninstallWrapperPath = Join-Path $BinDir "$exeBaseName-uninstall.bat"
+    $uninstallWrapperContent = @"
+@echo off
+powershell -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\BlueBear\uninstall.ps1" %* 2>nul
+exit /b 0
+"@
+    Set-Content -Path $uninstallWrapperPath -Value $uninstallWrapperContent -Encoding ASCII
+
     Write-Status "Created wrapper scripts" -Type "Success"
-    return $installedClients
 }
 
 function Add-ToPath {
@@ -745,7 +645,7 @@ function Add-ToPath {
 }
 
 function Save-InstallInfo {
-    param([string[]]$InstalledClients)
+    # DEN-750: Simplified for single binary - no longer tracks individual clients
 
     # Load existing config or create new
     $config = @{}
@@ -760,7 +660,6 @@ function Save-InstallInfo {
         }
     }
 
-    $config["installed_clients"] = $InstalledClients
     $config["version"] = $Version
     $config["platform"] = "windows-x86_64"
     $config["install_type"] = "powershell"
@@ -772,6 +671,62 @@ function Save-InstallInfo {
 
     # Set restrictive file permissions (current user only)
     Set-ConfigFilePermissions -FilePath $ConfigFile | Out-Null
+}
+
+function Install-PowerShellCompletion {
+    # Install PowerShell completion script to user's profile directory
+    # This enables tab completion for bluebear commands in PowerShell
+    param([string]$ExePath, [string]$ExeBaseName)
+
+    Write-Status "Installing PowerShell completion..."
+
+    try {
+        # Generate completion script
+        $completionScript = & $ExePath completion powershell 2>&1
+
+        if ($LASTEXITCODE -ne 0) {
+            Write-Detail "Could not generate completion script"
+            return
+        }
+
+        # Get PowerShell profile directory (not the profile script itself)
+        $profileDir = Split-Path -Parent $PROFILE
+
+        # Create profile directory if it doesn't exist
+        if (-not (Test-Path $profileDir)) {
+            New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
+        }
+
+        # Save completion script to a separate file
+        $completionFile = Join-Path $profileDir "$ExeBaseName.completion.ps1"
+        $completionScript | Set-Content -Path $completionFile -Encoding UTF8
+
+        # Check if profile exists and if it already sources the completion
+        $profileContent = ""
+        if (Test-Path $PROFILE) {
+            $profileContent = Get-Content $PROFILE -Raw -ErrorAction SilentlyContinue
+        }
+
+        $sourceCommand = ". `"$completionFile`""
+
+        if ($profileContent -notmatch [regex]::Escape($completionFile)) {
+            # Add sourcing command to profile
+            $profileAddition = @"
+
+# BlueBear CLI completion
+if (Test-Path "$completionFile") { $sourceCommand }
+"@
+
+            Add-Content -Path $PROFILE -Value $profileAddition -Encoding UTF8
+            Write-Status "PowerShell completion installed" -Type "Success"
+            Write-Detail "Completion will be available in new PowerShell sessions"
+            Write-Detail "Or run: . `"$completionFile`""
+        } else {
+            Write-Detail "PowerShell completion already configured"
+        }
+    } catch {
+        Write-Detail "Could not install PowerShell completion: $_"
+    }
 }
 
 # Main installation flow
@@ -825,7 +780,7 @@ function Install-BlueBear {
         Write-Host "Please try again, or manually configure:" -ForegroundColor Yellow
         Write-Host "  1. Visit: $ConsoleUrl/settings"
         Write-Host "  2. Copy your API key"
-        Write-Host "  3. After install, run: bluebear <client> configure --api-key YOUR_KEY"
+        Write-Host "  3. After install, run: bluebear configure --api-key YOUR_KEY"
         exit 1
     }
 
@@ -860,21 +815,17 @@ function Install-BlueBear {
         New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
     }
 
-    # Download all clients
-    $installedClients = @()
-    foreach ($client in $Clients.Keys) {
-        if (Get-ClientBinary -Client $client -JwtToken $jwtToken) {
-            $installedClients += $client
-        }
-    }
-
-    if ($installedClients.Count -eq 0) {
-        Write-Status "No clients were installed" -Type "Error"
+    # DEN-750: Download single unified binary
+    if (-not (Get-BlueBearBinary -JwtToken $jwtToken)) {
+        Write-Status "Failed to download BlueBear binary" -Type "Error"
         exit 1
     }
 
+    # Bundle uninstall script (version-matched)
+    Copy-UninstallScript
+
     # Create wrapper scripts
-    $installedClients = New-WrapperScripts
+    New-WrapperScripts
 
     # Add to PATH unless disabled
     if (-not $NoAddToPath) {
@@ -882,38 +833,61 @@ function Install-BlueBear {
     }
 
     # Save installation info
-    Save-InstallInfo -InstalledClients $installedClients
+    Save-InstallInfo
 
-    # Print success message
+    # Install PowerShell completion
+    $bluebearExe = Join-Path $InstallDir $exeName
+    Install-PowerShellCompletion -ExePath $bluebearExe -ExeBaseName $exeBaseName
+
+    # DEN-750: Run bluebear enable to set up the daemon service
+    # Determine executable name based on environment
+    $exeName = if ($Environment) { "bluebear-$Environment.exe" } else { "bluebear.exe" }
+    $exeBaseName = if ($Environment) { "bluebear-$Environment" } else { "bluebear" }
+
+    Write-Status "Setting up BlueBear daemon..."
+    $bluebearExe = Join-Path $InstallDir $exeName
+    try {
+        & $bluebearExe enable 2>&1 | ForEach-Object { Write-Detail $_ }
+        Write-Status "BlueBear daemon enabled and started" -Type "Success"
+    } catch {
+        Write-Status "Failed to set up daemon: $_" -Type "Warning"
+        Write-Detail "You can manually start the daemon with: $exeBaseName enable"
+    }
+
+    # Ask user if they want to ingest existing history
+    Write-Host ""
+    Write-Host "Would you like to ingest existing Claude and Cursor history? [Y/n] " -NoNewline
+    $response = Read-Host
+    $response = $response.Trim().ToLower()
+
+    if ($response -eq "" -or $response -eq "y" -or $response -eq "yes") {
+        Write-Status "Starting history ingestion in background..."
+
+        # Run ingest-history in background for both clients
+        # Write script to temp file to avoid quoting/escaping issues with -Command
+        $tempScript = Join-Path $env:TEMP "bluebear-ingest-$([guid]::NewGuid().ToString('N').Substring(0,8)).ps1"
+        @"
+`$exe = '$bluebearExe'
+& `$exe ingest-history claude
+& `$exe ingest-history cursor
+Remove-Item -Path '$tempScript' -Force -ErrorAction SilentlyContinue
+"@ | Set-Content -Path $tempScript -Encoding UTF8
+
+        Start-Process powershell -ArgumentList "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-File", $tempScript -WindowStyle Hidden
+
+        Write-Status "History ingestion running in background" -Type "Success"
+    } else {
+        Write-Detail "Skipped. You can run later with:"
+        Write-Detail "  $exeBaseName ingest-history claude"
+        Write-Detail "  $exeBaseName ingest-history cursor"
+    }
+
     Write-Host ""
     Write-Status "BlueBear installation complete!" -Type "Success"
     Write-Host ""
-    Write-Host "    Clients are installed but " -NoNewline
-    Write-Host "not yet enabled" -ForegroundColor Green -NoNewline
-    Write-Host "."
+    Write-Host "    To uninstall: " -NoNewline
+    Write-Host "$exeBaseName-uninstall" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "    " -NoNewline
-    Write-Host "Enable each client:" -ForegroundColor Green
-    foreach ($client in $installedClients) {
-        Write-Host "      bluebear $client enable"
-    }
-    Write-Host ""
-    Write-Host "    To disable:"
-    foreach ($client in $installedClients) {
-        Write-Host "      bluebear $client disable"
-    }
-    Write-Host ""
-    Write-Host "    Your configuration is stored in: $ConfigFile"
-    Write-Host ""
-    Write-Host "    Documentation: $ConsoleUrl/docs"
-    Write-Host ""
-
-    if (-not $NoAddToPath) {
-        Write-Host "    " -NoNewline
-        Write-Host "NOTE: " -ForegroundColor Yellow -NoNewline
-        Write-Host "You may need to restart your terminal to use 'bluebear' command."
-        Write-Host ""
-    }
 }
 
 # Run installation
