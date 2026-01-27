@@ -38,7 +38,7 @@ if (-not $InstallDir) {
 $BinDir = Join-Path $InstallDir "bin"
 
 # Version - will be replaced by CI/CD (e.g., 0.0.478 for PR, 1.2.3 for prod)
-$Version = "0.5.1"
+$Version = "0.5.2"
 
 # Detect PR version from API URL if not replaced by CI/CD
 if ($Version -eq "__VERSION__") {
