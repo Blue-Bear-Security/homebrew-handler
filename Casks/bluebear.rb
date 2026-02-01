@@ -283,10 +283,10 @@ class BluebearCaskDownloadStrategy < CurlDownloadStrategy
 end
 
 cask "bluebear" do
-  version "0.5.3"
-  sha256 "1271c8e87d2cf54b5aa0038bf58d360d26f88a0390a7079e730677847872ebcf"
+  version "0.5.4"
+  sha256 "bf04182e650ccb378a12dcabbe9063da797247e6f1be27b9ddc1c0c9f4b3f45d"
 
-  url "https://api.bluebearsecurity.io/api/v1/bff/download/bluebear/v0.5.3/macos-arm64/bluebear-macos-arm64.tar.gz",
+  url "https://api.bluebearsecurity.io/api/v1/bff/download/bluebear/v0.5.4/macos-arm64/bluebear-macos-arm64.tar.gz",
       using: BluebearCaskDownloadStrategy
   name "BlueBear"
   desc "Secure AI coding agent governance for Claude, Codex, Copilot, and more"
